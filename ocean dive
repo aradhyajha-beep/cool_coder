@@ -1,0 +1,714 @@
+"""
+DEEP CLEAN — Ocean Cleanup Dive
+A Python/Pygame port of the browser game.
+
+Pilot a little submarine down through darkening water, scoop up drifting
+debris for points + oxygen, and dodge jellyfish and currents. The deeper
+you go, the faster things fall and the less oxygen you have to spare.
+
+Requirements:
+    pip install pygame numpy
+
+Run:
+    python ocean_cleanup.py
+
+Controls:
+    Arrow keys / WASD  - move the submarine
+    M                  - mute / unmute music
+    Space / Enter      - start dive / dive again
+    Esc                - quit
+"""
+
+import math
+import random
+import sys
+
+import numpy as np
+import pygame
+
+# --------------------------------------------------------------------------
+# Setup
+# --------------------------------------------------------------------------
+
+pygame.init()
+pygame.mixer.init(frequency=44100, size=-16, channels=2)
+
+WIDTH, HEIGHT = 720, 900
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Deep Clean — Ocean Cleanup Dive")
+clock = pygame.time.Clock()
+
+# Palette (matches the browser version)
+ABYSS = (3, 16, 28)
+MID_TEAL = (20, 116, 111)
+FOAM = (143, 217, 196)
+GLOW = (124, 249, 204)
+SAND = (233, 217, 184)
+DANGER = (255, 77, 94)
+
+FONT_BIG = pygame.font.SysFont("georgia", 64, bold=True)
+FONT_MED = pygame.font.SysFont("georgia", 26, italic=True)
+FONT_HUD = pygame.font.SysFont("consolas", 20, bold=True)
+FONT_SMALL = pygame.font.SysFont("consolas", 14)
+FONT_TINY = pygame.font.SysFont("consolas", 12)
+
+
+# --------------------------------------------------------------------------
+# Procedural music (no samples — everything synthesized with numpy)
+# --------------------------------------------------------------------------
+
+SAMPLE_RATE = 44100
+BPM = 132
+
+
+def _env(n, attack=0.005, release=0.08):
+    """Simple attack/release envelope of length n samples."""
+    a = max(1, int(SAMPLE_RATE * attack))
+    r = max(1, int(SAMPLE_RATE * release))
+    env = np.ones(n)
+    a = min(a, n)
+    r = min(r, n)
+    env[:a] = np.linspace(0, 1, a)
+    env[-r:] *= np.linspace(1, 0, r)
+    return env
+
+
+def make_kick(duration=0.22):
+    n = int(SAMPLE_RATE * duration)
+    t = np.linspace(0, duration, n, False)
+    freq = np.linspace(150, 45, n)
+    phase = np.cumsum(freq) / SAMPLE_RATE
+    wave = np.sin(2 * np.pi * phase)
+    env = np.exp(-t * 18)
+    return wave * env * 0.9
+
+
+def make_hat(duration=0.05):
+    n = int(SAMPLE_RATE * duration)
+    noise = np.random.uniform(-1, 1, n)
+    env = np.exp(-np.linspace(0, 1, n) * 12)
+    return noise * env * 0.18
+
+
+def make_bass(freq, duration):
+    n = int(SAMPLE_RATE * duration)
+    t = np.linspace(0, duration, n, False)
+    # sawtooth wave
+    saw = 2 * (t * freq - np.floor(0.5 + t * freq))
+    env = _env(n, attack=0.01, release=duration * 0.5)
+    return saw * env * 0.32
+
+
+def make_lead(freq, duration, energy):
+    n = int(SAMPLE_RATE * duration)
+    t = np.linspace(0, duration, n, False)
+    # square wave
+    sq = np.sign(np.sin(2 * np.pi * freq * t))
+    env = _env(n, attack=0.01, release=duration * 0.6)
+    return sq * env * (0.08 + energy * 0.05)
+
+
+def midi_to_freq(m):
+    return 220.0 * (2.0 ** ((m - 45) / 12.0))
+
+
+def to_stereo_sound(mono):
+    mono = np.clip(mono, -1, 1)
+    stereo = np.column_stack((mono, mono))
+    audio = (stereo * 32767).astype(np.int16)
+    return pygame.sndarray.make_sound(np.ascontiguousarray(audio))
+
+
+class MusicEngine:
+    """Builds a short energetic loop once, then lets Pygame's mixer repeat it.
+
+    A driving A-minor riff: kick + hat groove, sawtooth bassline, and a
+    square-wave lead that fades in as you dive deeper (energy 0..1).
+    """
+
+    BASS_PATTERN = [45, 45, 52, 45, 48, 48, 52, 48, 43, 43, 50, 43, 46, 46, 53, 46]
+    LEAD_PATTERN = [69, 72, 76, 72, 71, 74, 77, 74, 67, 71, 74, 71, 69, 72, 74, 76]
+    HAT_PATTERN = [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1]
+    KICK_PATTERN = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0]
+
+    def __init__(self):
+        self.step_dur = 60.0 / BPM / 4.0  # 16th note
+        self.bar_len = self.step_dur * 16
+        self.muted = False
+        self._loops = {}  # energy bucket -> pygame.Sound
+        self._current_energy_bucket = None
+        self._channel = pygame.mixer.Channel(0)
+        self._build_loops()
+
+    def _render_bar(self, energy):
+        n_samples = int(SAMPLE_RATE * self.bar_len) + SAMPLE_RATE  # pad for note tails
+        buf = np.zeros(n_samples)
+
+        def add(sound_arr, start_time):
+            start = int(start_time * SAMPLE_RATE)
+            end = start + len(sound_arr)
+            if end > len(buf):
+                sound_arr = sound_arr[: len(buf) - start]
+                end = len(buf)
+            buf[start:end] += sound_arr
+
+        for s in range(16):
+            t = s * self.step_dur
+            if self.KICK_PATTERN[s]:
+                add(make_kick(), t)
+            if self.HAT_PATTERN[s]:
+                add(make_hat(), t)
+            if s % 4 == 0:
+                add(make_bass(midi_to_freq(self.BASS_PATTERN[s]), self.step_dur * 3.6), t)
+            if energy > 0.15 and (s % 2 == 0 or energy > 0.6):
+                add(make_lead(midi_to_freq(self.LEAD_PATTERN[s]), self.step_dur * 1.8, energy), t)
+
+        loop_samples = int(SAMPLE_RATE * self.bar_len)
+        return buf[:loop_samples]
+
+    def _build_loops(self):
+        # Pre-render three intensity tiers so we're not synthesizing during gameplay.
+        for bucket, energy in [("low", 0.0), ("mid", 0.4), ("high", 0.85)]:
+            mono = self._render_bar(energy)
+            self._loops[bucket] = to_stereo_sound(mono)
+
+    def _bucket_for(self, energy):
+        if energy < 0.25:
+            return "low"
+        if energy < 0.6:
+            return "mid"
+        return "high"
+
+    def start(self):
+        self._current_energy_bucket = "low"
+        self._channel.set_volume(0 if self.muted else 0.55)
+        self._channel.play(self._loops["low"], loops=-1)
+
+    def update(self, energy):
+        bucket = self._bucket_for(energy)
+        if bucket != self._current_energy_bucket:
+            self._current_energy_bucket = bucket
+            was_muted_vol = self._channel.get_volume()
+            self._channel.play(self._loops[bucket], loops=-1)
+            self._channel.set_volume(was_muted_vol)
+
+    def stop(self):
+        self._channel.stop()
+
+    def toggle_mute(self):
+        self.muted = not self.muted
+        self._channel.set_volume(0 if self.muted else 0.55)
+        return self.muted
+
+
+music = MusicEngine()
+
+
+# --------------------------------------------------------------------------
+# Game entities
+# --------------------------------------------------------------------------
+
+DEBRIS_TYPES = [
+    {"shape": "bottle", "color": (255, 176, 32), "glow": (255, 219, 122)},
+    {"shape": "can", "color": (255, 107, 61), "glow": (255, 179, 122)},
+    {"shape": "bag", "color": (57, 214, 255), "glow": (174, 240, 255)},
+    {"shape": "net", "color": (255, 244, 214), "glow": (255, 255, 255)},
+]
+
+
+class Submarine:
+    def __init__(self):
+        self.x = WIDTH / 2
+        self.y = HEIGHT * 0.3
+        self.vx = 0.0
+        self.vy = 0.0
+        self.r = 24
+        self.tilt = 0.0
+
+    def update(self, keys, currents):
+        ax = ay = 0.0
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            ax -= 1
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            ax += 1
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            ay -= 1
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            ay += 1
+
+        accel = 0.55
+        self.vx += ax * accel
+        self.vy += ay * accel
+        self.vx *= 0.9
+        self.vy *= 0.9
+        self.tilt = self.vx * 0.03
+
+        for c in currents:
+            if c.y - 20 < self.y < c.y + c.h + 20:
+                self.vx += c.dir * c.strength * 0.08
+
+        self.x += self.vx
+        self.y += self.vy
+        self.x = max(self.r, min(WIDTH - self.r, self.x))
+        self.y = max(self.r + 40, min(HEIGHT - self.r - 10, self.y))
+
+    def draw(self, surf, depth):
+        light_strength = min(0.5, 0.15 + depth * 0.0004)
+        light_r = 100
+        light_surf = pygame.Surface((light_r * 2, light_r * 2), pygame.SRCALPHA)
+        for i in range(light_r, 0, -2):
+            a = int(light_strength * 255 * (i / light_r) * 0.15)
+            pygame.draw.circle(light_surf, (230, 255, 245, a), (light_r, light_r), i)
+        surf.blit(light_surf, (self.x - light_r, self.y - light_r), special_flags=pygame.BLEND_RGBA_ADD)
+
+        body = pygame.Surface((90, 60), pygame.SRCALPHA)
+        cx, cy = 45, 30
+        pygame.draw.ellipse(body, (245, 236, 216), (cx - 26, cy - 16, 52, 32))
+        pygame.draw.ellipse(body, ABYSS, (cx - 26, cy - 16, 52, 32), 3)
+        pygame.draw.circle(body, GLOW, (cx + 6, cy), 9)
+        pygame.draw.circle(body, ABYSS, (cx + 6, cy), 9, 2)
+        pygame.draw.polygon(
+            body, (255, 122, 92),
+            [(cx - 22, cy), (cx - 36, cy - 9), (cx - 36, cy + 9)],
+        )
+        pygame.draw.polygon(
+            body, ABYSS,
+            [(cx - 22, cy), (cx - 36, cy - 9), (cx - 36, cy + 9)], 2,
+        )
+        pygame.draw.line(body, (245, 236, 216), (cx + 20, cy + 6), (cx + 32, cy + 15), 3)
+
+        rotated = pygame.transform.rotate(body, -math.degrees(self.tilt))
+        rect = rotated.get_rect(center=(self.x, self.y))
+        surf.blit(rotated, rect)
+
+
+class Debris:
+    def __init__(self, y=None, depth=0):
+        self.type = random.choice(DEBRIS_TYPES)
+        self.r = random.uniform(14, 20)
+        self.x = random.uniform(30, WIDTH - 30)
+        self.y = y if y is not None else -30
+        self.bob = random.uniform(0, math.pi * 2)
+        self.vy = 0.4 + random.uniform(0, 0.6) + min(depth / 400, 1.5)
+
+    def update(self):
+        self.y += self.vy
+        self.bob += 0.06
+        self.x += math.sin(self.bob) * 0.4
+
+    def draw(self, surf):
+        glow_r = int(self.r + 14)
+        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        for i in range(glow_r, 0, -2):
+            a = int(140 * (i / glow_r))
+            pygame.draw.circle(glow_surf, (*self.type["glow"], a), (glow_r, glow_r), i)
+        surf.blit(glow_surf, (self.x - glow_r, self.y - glow_r), special_flags=pygame.BLEND_RGBA_ADD)
+
+        color = self.type["color"]
+        outline = (3, 16, 28)
+        shape = self.type["shape"]
+        x, y = int(self.x), int(self.y)
+        if shape == "bottle":
+            rect = pygame.Rect(x - 6, y - 16, 12, 32)
+            pygame.draw.rect(surf, color, rect, border_radius=4)
+            pygame.draw.rect(surf, outline, rect, 2, border_radius=4)
+            pygame.draw.rect(surf, color, (x - 3, y - 20, 6, 6))
+        elif shape == "can":
+            rect = pygame.Rect(x - 9, y - 13, 18, 26)
+            pygame.draw.rect(surf, color, rect, border_radius=3)
+            pygame.draw.rect(surf, outline, rect, 2, border_radius=3)
+        elif shape == "bag":
+            pygame.draw.ellipse(surf, color, (x - 13, y - 16, 26, 32))
+            pygame.draw.ellipse(surf, outline, (x - 13, y - 16, 26, 32), 2)
+        else:  # net
+            for i in range(-10, 11, 6):
+                pygame.draw.line(surf, color, (x + i, y - 10), (x + i, y + 10), 2)
+                pygame.draw.line(surf, color, (x - 10, y + i), (x + 10, y + i), 2)
+            pygame.draw.rect(surf, (3, 16, 28, 150), (x - 10, y - 10, 20, 20), 1)
+
+
+class Jelly:
+    def __init__(self, y=None, depth=0):
+        self.r = random.uniform(16, 24)
+        self.x = random.uniform(30, WIDTH - 30)
+        self.y = y if y is not None else -40
+        self.phase = random.uniform(0, math.pi * 2)
+        self.vy = 0.5 + random.uniform(0, 0.5) + min(depth / 500, 1.2)
+        self.sway = 20 + random.uniform(0, 20)
+        self.hit = False
+        self.hit_timer = 0
+
+    def update(self):
+        self.y += self.vy
+        self.phase += 0.05
+        self.x += math.sin(self.phase) * (self.sway * 0.02)
+        if self.hit:
+            self.hit_timer -= 1
+
+    def draw(self, surf, t):
+        pulse = 0.5 + 0.5 * math.sin(t * 4 + self.phase)
+        halo_r = int(self.r + 10 + pulse * 6)
+        halo_surf = pygame.Surface((halo_r * 2, halo_r * 2), pygame.SRCALPHA)
+        a_base = 0.35 + pulse * 0.15
+        for i in range(halo_r, 0, -2):
+            a = int(255 * a_base * (i / halo_r))
+            pygame.draw.circle(halo_surf, (255, 77, 94, a), (halo_r, halo_r), i)
+        surf.blit(halo_surf, (self.x - halo_r, self.y - halo_r), special_flags=pygame.BLEND_RGBA_ADD)
+
+        color = (255, 77, 94) if self.hit else (232, 121, 249)
+        x, y, r = int(self.x), int(self.y), int(self.r)
+        cap = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(cap, color, (r, r), r)
+        pygame.draw.rect(cap, (0, 0, 0, 0), (0, r, r * 2, r))  # keep top half only via mask below
+        top_half = pygame.Surface((r * 2, r), pygame.SRCALPHA)
+        top_half.blit(cap, (0, 0), (0, 0, r * 2, r))
+        surf.blit(top_half, (x - r, y - r))
+        pygame.draw.arc(surf, (3, 16, 28), (x - r, y - r, r * 2, r * 2), math.pi, 2 * math.pi, 2)
+
+        for i in (-1, 0, 1):
+            sway = math.sin(self.phase + i) * 6
+            start = (x + i * r * 0.6, y)
+            mid = (x + i * r * 0.6 + sway, y + r * 0.8)
+            end = (x + i * r * 0.5 + sway, y + r * 1.5)
+            pygame.draw.lines(surf, color, False, [start, mid, end], 3)
+
+
+class Current:
+    def __init__(self, y=None):
+        self.y = y if y is not None else -60
+        self.h = 50
+        self.dir = random.choice([-1, 1])
+        self.strength = 0.6 + random.uniform(0, 0.8)
+
+    def update(self, dt):
+        self.y += dt * 40
+
+    def draw(self, surf, t):
+        band = pygame.Surface((WIDTH, self.h), pygame.SRCALPHA)
+        band.fill((*FOAM, 20))
+        surf.blit(band, (0, self.y))
+        for x in range(0, WIDTH, 30):
+            yy = self.y + self.h / 2 + math.sin(x * 0.05 + t * 2) * 6
+            pygame.draw.line(surf, (*FOAM, 90), (x, yy), (x + self.dir * 14, yy), 2)
+
+
+class Particle:
+    def __init__(self, x, y, color):
+        self.x, self.y = x, y
+        self.vx = random.uniform(-1.5, 1.5)
+        self.vy = random.uniform(-2.5, -0.5)
+        self.life = 1.0
+        self.color = color
+
+    def update(self, dt):
+        self.x += self.vx
+        self.y += self.vy
+        self.vy += 0.05
+        self.life -= dt * 2
+
+    def draw(self, surf):
+        if self.life > 0:
+            a = max(0, min(255, int(self.life * 255)))
+            s = pygame.Surface((6, 6), pygame.SRCALPHA)
+            pygame.draw.circle(s, (*self.color, a), (3, 3), 3)
+            surf.blit(s, (self.x - 3, self.y - 3))
+
+
+class Bubble:
+    def __init__(self, y=None):
+        self.x = random.uniform(0, WIDTH)
+        self.y = y if y is not None else HEIGHT + 20
+        self.r = random.uniform(1.5, 4.5)
+        self.speed = random.uniform(0.4, 1.2)
+        self.drift = random.uniform(-0.15, 0.15)
+
+    def update(self):
+        self.y -= self.speed
+        self.x += self.drift
+        if self.y < -10:
+            self.y = HEIGHT + 10
+            self.x = random.uniform(0, WIDTH)
+
+    def draw(self, surf):
+        pygame.draw.circle(
+            surf, (200, 240, 230), (int(self.x), int(self.y)), max(1, int(self.r))
+        )
+
+
+# --------------------------------------------------------------------------
+# Game state
+# --------------------------------------------------------------------------
+
+class Game:
+    def __init__(self):
+        self.state = "start"  # start, playing, gameover
+        self.best = 0
+        self.reset()
+
+    def reset(self):
+        self.score = 0
+        self.oxygen = 100.0
+        self.depth = 0.0
+        self.elapsed = 0.0
+        self.sub = Submarine()
+        self.debris = [Debris(random.uniform(0, HEIGHT)) for _ in range(6)]
+        self.jellies = []
+        self.currents = []
+        self.bubbles = [Bubble(random.uniform(0, HEIGHT)) for _ in range(50)]
+        self.particles = []
+
+    def start(self):
+        self.reset()
+        self.state = "playing"
+        music.start()
+
+    def end(self):
+        self.state = "gameover"
+        music.stop()
+        if self.score > self.best:
+            self.best = self.score
+
+    def update(self, dt, keys):
+        if self.state != "playing":
+            for b in self.bubbles:
+                b.update()
+            return
+
+        self.elapsed += dt
+        self.depth += dt * 6
+
+        spawn_rate = max(0.006, 0.02 - self.depth * 0.00002)
+        if random.random() < spawn_rate * dt * 60:
+            self.debris.append(Debris(depth=self.depth))
+        if random.random() < spawn_rate * 0.55 * dt * 60:
+            self.jellies.append(Jelly(depth=self.depth))
+        if random.random() < 0.002 * dt * 60:
+            self.currents.append(Current())
+
+        self.sub.update(keys, self.currents)
+        self.oxygen -= dt * (1.1 + self.depth * 0.0012)
+
+        for b in self.bubbles:
+            b.update()
+        for c in self.currents:
+            c.update(dt)
+        self.currents = [c for c in self.currents if c.y < HEIGHT + 80]
+
+        for d in self.debris:
+            d.update()
+        survivors = []
+        for d in self.debris:
+            dist = math.hypot(d.x - self.sub.x, d.y - self.sub.y)
+            if dist < d.r + self.sub.r - 6:
+                self.score += 10
+                self.oxygen = min(100, self.oxygen + 6)
+                for _ in range(10):
+                    self.particles.append(Particle(d.x, d.y, d.type["color"]))
+            elif d.y < HEIGHT + 40:
+                survivors.append(d)
+        self.debris = survivors
+
+        for j in self.jellies:
+            j.update()
+        for j in self.jellies:
+            dist = math.hypot(j.x - self.sub.x, j.y - self.sub.y)
+            if dist < j.r + self.sub.r - 10 and not j.hit:
+                self.oxygen -= 22
+                j.hit = True
+                j.hit_timer = 20
+                for _ in range(10):
+                    self.particles.append(Particle(self.sub.x, self.sub.y, DANGER))
+        self.jellies = [j for j in self.jellies if j.y < HEIGHT + 40 and (not j.hit or j.hit_timer > -30)]
+
+        for p in self.particles:
+            p.update(dt)
+        self.particles = [p for p in self.particles if p.life > 0]
+
+        music.update(min(1.0, self.depth / 500))
+
+        if self.oxygen <= 0:
+            self.end()
+
+
+game = Game()
+
+
+# --------------------------------------------------------------------------
+# Drawing helpers
+# --------------------------------------------------------------------------
+
+def lerp_color(c1, c2, t):
+    return tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
+
+
+def bg_color_at(depth):
+    t = min(depth / 900, 1)
+    return lerp_color(MID_TEAL, ABYSS, t)
+
+
+def draw_background(surf, depth, t):
+    top = bg_color_at(depth)
+    for y in range(0, HEIGHT, 4):
+        f = y / HEIGHT
+        col = lerp_color(top, ABYSS, f)
+        pygame.draw.rect(surf, col, (0, y, WIDTH, 4))
+
+    ray_alpha = max(0, 0.12 - depth * 0.0002)
+    if ray_alpha > 0:
+        ray_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for i in range(5):
+            x = WIDTH * (0.15 + i * 0.2)
+            poly = pygame.Surface((40, int(HEIGHT * 0.7)), pygame.SRCALPHA)
+            poly.fill((191, 255, 233, int(ray_alpha * 255)))
+            rotated = pygame.transform.rotate(poly, -9)
+            ray_surf.blit(rotated, (x - 20, 0))
+        surf.blit(ray_surf, (0, 0))
+
+
+def draw_hud(surf):
+    def block(x, y, w, label, value):
+        panel = pygame.Surface((w, 52), pygame.SRCALPHA)
+        panel.fill((3, 16, 28, 115))
+        pygame.draw.rect(panel, (*FOAM, 60), (0, 0, w, 52), 1, border_radius=10)
+        surf.blit(panel, (x, y))
+        lbl = FONT_TINY.render(label.upper(), True, FOAM)
+        surf.blit(lbl, (x + 12, y + 6))
+        val = FONT_HUD.render(value, True, SAND)
+        surf.blit(val, (x + 12, y + 22))
+
+    block(18, 16, 140, "Collected", str(game.score))
+    block(WIDTH - 158, 16, 140, "Depth", f"{int(game.depth)}m")
+
+    # oxygen bar in the middle
+    ox_x, ox_y, ox_w = WIDTH / 2 - 100, 16, 200
+    panel = pygame.Surface((ox_w, 52), pygame.SRCALPHA)
+    panel.fill((3, 16, 28, 115))
+    pygame.draw.rect(panel, (*FOAM, 60), (0, 0, ox_w, 52), 1, border_radius=10)
+    surf.blit(panel, (ox_x, ox_y))
+    lbl = FONT_TINY.render("OXYGEN", True, FOAM)
+    surf.blit(lbl, (ox_x + 12, ox_y + 6))
+    bar_w = ox_w - 24
+    pygame.draw.rect(surf, (255, 255, 255, 30), (ox_x + 12, ox_y + 28, bar_w, 8), border_radius=4)
+    pct = max(0, game.oxygen) / 100
+    if pct < 0.25:
+        col = DANGER
+    elif pct < 0.55:
+        col = (224, 169, 78)
+    else:
+        col = GLOW
+    pygame.draw.rect(surf, col, (ox_x + 12, ox_y + 28, int(bar_w * pct), 8), border_radius=4)
+
+    mute_label = "M: unmute" if music.muted else "M: mute"
+    txt = FONT_TINY.render(mute_label, True, SAND)
+    surf.blit(txt, (WIDTH - 90, HEIGHT - 30))
+
+    legend = FONT_TINY.render(
+        "debris = O2+points   jellyfish = damage   band = current", True, (233, 217, 184)
+    )
+    surf.blit(legend, (WIDTH / 2 - legend.get_width() / 2, HEIGHT - 30))
+
+
+def draw_start_screen(surf):
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((3, 16, 28, 210))
+    surf.blit(overlay, (0, 0))
+
+    title = FONT_BIG.render("DEEP CLEAN", True, SAND)
+    surf.blit(title, (WIDTH / 2 - title.get_width() / 2, HEIGHT * 0.28))
+
+    sub = FONT_MED.render("a dive against the drift", True, FOAM)
+    surf.blit(sub, (WIDTH / 2 - sub.get_width() / 2, HEIGHT * 0.28 + 70))
+
+    best = FONT_SMALL.render(f"best: {game.best}", True, FOAM)
+    surf.blit(best, (WIDTH / 2 - best.get_width() / 2, HEIGHT * 0.28 + 110))
+
+    prompt = FONT_HUD.render("Press SPACE to begin dive", True, GLOW)
+    surf.blit(prompt, (WIDTH / 2 - prompt.get_width() / 2, HEIGHT * 0.55))
+
+    lines = [
+        "Arrow keys / WASD to move.",
+        "Scoop debris for points + oxygen.",
+        "Avoid jellyfish — they drain your air fast.",
+        "Press M to mute music.",
+    ]
+    for i, line in enumerate(lines):
+        t = FONT_SMALL.render(line, True, (233, 217, 184))
+        surf.blit(t, (WIDTH / 2 - t.get_width() / 2, HEIGHT * 0.62 + i * 22))
+
+
+def draw_end_screen(surf):
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((3, 16, 28, 225))
+    surf.blit(overlay, (0, 0))
+
+    label = FONT_SMALL.render("DIVE COMPLETE", True, FOAM)
+    surf.blit(label, (WIDTH / 2 - label.get_width() / 2, HEIGHT * 0.32))
+
+    score_txt = FONT_BIG.render(str(game.score), True, GLOW)
+    surf.blit(score_txt, (WIDTH / 2 - score_txt.get_width() / 2, HEIGHT * 0.36))
+
+    depth_txt = FONT_SMALL.render(
+        f"reached {int(game.depth)}m  ·  best {game.best}", True, FOAM
+    )
+    surf.blit(depth_txt, (WIDTH / 2 - depth_txt.get_width() / 2, HEIGHT * 0.36 + 90))
+
+    prompt = FONT_HUD.render("Press SPACE to dive again", True, GLOW)
+    surf.blit(prompt, (WIDTH / 2 - prompt.get_width() / 2, HEIGHT * 0.55))
+
+
+# --------------------------------------------------------------------------
+# Main loop
+# --------------------------------------------------------------------------
+
+def main():
+    running = True
+    while running:
+        dt = clock.tick(60) / 1000.0
+        t = pygame.time.get_ticks() / 1000.0
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                elif event.key == pygame.K_m:
+                    music.toggle_mute()
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    if game.state in ("start", "gameover"):
+                        game.start()
+
+        keys = pygame.key.get_pressed()
+        game.update(dt, keys)
+
+        draw_background(screen, game.depth, t)
+
+        for c in game.currents:
+            c.draw(screen, t)
+        for b in game.bubbles:
+            b.draw(screen)
+        for d in game.debris:
+            d.draw(screen)
+        for j in game.jellies:
+            j.draw(screen, t)
+        for p in game.particles:
+            p.draw(screen)
+        if game.state in ("playing", "gameover"):
+            game.sub.draw(screen, game.depth)
+
+        if game.state == "playing":
+            draw_hud(screen)
+        elif game.state == "start":
+            draw_start_screen(screen)
+        elif game.state == "gameover":
+            draw_hud(screen)
+            draw_end_screen(screen)
+
+        pygame.display.flip()
+
+    pygame.quit()
+    sys.exit()
+
+
+if __name__ == "__main__":
+    main()
