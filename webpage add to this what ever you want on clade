@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why act now — the climate math, plainly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0D1B2A; --surface:#14273A; --card:#182F45;
+    --ink:#EAF1F5; --ink-dim:#8FA6BA;
+    --heat:#E8552A; --heat-dim:#7A331A;
+    --cool:#3FA9C8; --cool-dim:#1F5266;
+    --good:#5FB86A;
+    --line:#23405A;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans', sans-serif; line-height:1.65;}
+  h1,h2,h3{font-family:'Space Grotesk', sans-serif; font-weight:600; letter-spacing:-0.01em;}
+  .mono{font-family:'IBM Plex Mono', monospace;}
+  .wrap{max-width:1020px; margin:0 auto; padding:0 32px;}
+  a{color:inherit;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:26px 0; border-bottom:1px solid var(--line);}
+  .logo{display:flex; align-items:center; gap:9px; font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:18px;}
+  .logo .dot{width:9px; height:9px; border-radius:50%; background:var(--heat);}
+  .navlinks{display:flex; gap:30px; font-size:14px; color:var(--ink-dim);}
+  .navlinks a:hover{color:var(--ink);}
+  .back{font-size:13px; color:var(--ink-dim); font-family:'IBM Plex Mono', monospace; text-decoration:none; background:none; border:none; cursor:pointer;}
+  .back:hover{color:var(--ink);}
+
+  .hero{padding:96px 0 72px; max-width:760px;}
+  .eyebrow{font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--heat); margin-bottom:22px;}
+  .hero h1{font-size:52px; line-height:1.1; margin-bottom:24px;}
+  .hero p.lede{font-size:18px; color:var(--ink-dim); max-width:600px; margin-bottom:8px;}
+  .source-note{font-size:12.5px; color:var(--ink-dim); margin-top:28px; font-family:'IBM Plex Mono', monospace;}
+
+  .statrow{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin-top:44px;}
+  .stat{background:var(--surface); padding:22px 20px;}
+  .stat .num{font-family:'Space Grotesk', sans-serif; font-size:34px; font-weight:700; color:var(--heat);}
+  .stat .label{font-size:13px; color:var(--ink-dim); margin-top:6px;}
+
+  .section{padding:88px 0; border-top:1px solid var(--line);}
+  .section-head{max-width:600px; margin-bottom:48px;}
+  .section-head h2{font-size:32px; line-height:1.2;}
+  .section-head p{color:var(--ink-dim); margin-top:14px; font-size:15px;}
+
+  .ticker{display:flex; align-items:flex-end; gap:6px; height:220px; margin-bottom:8px; padding:0 0 24px; border-bottom:1px solid var(--line); position:relative;}
+  .ticker .baseline{position:absolute; left:0; right:0; bottom:24px; border-top:1px dashed var(--ink-dim); opacity:0.35;}
+  .tick{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;}
+  .tick .bar{width:100%; max-width:52px; background:var(--cool-dim); border-radius:2px 2px 0 0; position:relative;}
+  .tick.current .bar{background:var(--heat);}
+  .tick .val{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-dim); margin-bottom:8px;}
+  .tick.current .val{color:var(--heat); font-weight:500;}
+  .tick .yr{font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-dim); margin-top:10px;}
+  .tick.current .yr{color:var(--ink);}
+  .ticker-legend{display:flex; gap:24px; font-size:12.5px; color:var(--ink-dim); font-family:'IBM Plex Mono', monospace;}
+  .ticker-legend span{display:flex; align-items:center; gap:6px;}
+  .swatch{width:9px; height:9px; border-radius:2px;}
+
+  .why-grid{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border:1px solid var(--line);}
+  .why-card{background:var(--surface); padding:28px 26px;}
+  .why-card .tag{font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--cool); margin-bottom:14px; display:block;}
+  .why-card h3{font-size:18px; margin-bottom:10px;}
+  .why-card p{font-size:14.5px; color:var(--ink-dim);}
+
+  .actions{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  .action{border:1px solid var(--line); padding:26px 22px; border-radius:2px;}
+  .action .idx{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--heat); margin-bottom:16px;}
+  .action h3{font-size:17px; margin-bottom:10px;}
+  .action p{font-size:14px; color:var(--ink-dim);}
+
+  .final{text-align:center; padding:100px 0 96px;}
+  .final h2{font-size:38px; max-width:600px; margin:0 auto 18px;}
+  .final p{color:var(--ink-dim); margin-bottom:32px;}
+  .btn{display:inline-flex; align-items:center; gap:8px; padding:13px 26px; border-radius:2px; font-size:15px; font-weight:500; text-decoration:none; font-family:'IBM Plex Mono', monospace; border:none; cursor:pointer;}
+  .btn-primary{background:var(--heat); color:#1A0A05;}
+  .btn-primary:hover{background:#F0663A;}
+  .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--ink);}
+  .btn-ghost:hover{border-color:var(--ink-dim);}
+
+  footer{border-top:1px solid var(--line); padding:30px 0; display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-dim); font-family:'IBM Plex Mono', monospace;}
+
+  /* ---- game page ---- */
+  .game-wrap{max-width:720px; margin:0 auto; padding:0 32px;}
+  .game{padding:64px 0 96px;}
+  .hud{display:flex; gap:1px; background:var(--line); border:1px solid var(--line); margin-bottom:44px;}
+  .hud-item{flex:1; background:var(--surface); padding:16px 18px;}
+  .hud-item .label{font-size:11px; color:var(--ink-dim); font-family:'IBM Plex Mono', monospace; text-transform:uppercase; letter-spacing:0.05em;}
+  .hud-item .val{font-family:'Space Grotesk', sans-serif; font-size:22px; font-weight:600; margin-top:4px;}
+
+  .scene{display:none;}
+  .scene.active{display:block;}
+  .scene h2{font-size:26px; line-height:1.3; margin-bottom:14px;}
+  .scene p.body{color:var(--ink-dim); font-size:15px; margin-bottom:32px; max-width:560px;}
+
+  .choice{display:block; width:100%; text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:2px; padding:18px 20px; margin-bottom:12px; color:var(--ink); font-family:'IBM Plex Sans', sans-serif; font-size:15px; cursor:pointer;}
+  .choice:hover{border-color:var(--cool); background:var(--card);}
+  .choice .tag{display:block; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--cool); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.05em;}
+
+  .end-stats{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); border:1px solid var(--line); margin:32px 0;}
+  .end-stat{background:var(--surface); padding:20px;}
+  .end-stat .num{font-family:'Space Grotesk', sans-serif; font-size:30px; font-weight:700;}
+  .end-stat .label{font-size:12.5px; color:var(--ink-dim); margin-top:4px;}
+
+  /* ---- page toggling ---- */
+  #page-game{display:none;}
+
+  @media (max-width:820px){
+    .hero h1{font-size:36px;}
+    .statrow{grid-template-columns:1fr;}
+    .why-grid{grid-template-columns:1fr;}
+    .actions{grid-template-columns:1fr;}
+    .navlinks{display:none;}
+    .ticker{gap:3px;}
+    .tick .yr, .tick .val{font-size:9.5px;}
+  }
+  @media (max-width:600px){
+    .scene h2{font-size:21px;}
+    .hud-item .val{font-size:18px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ PAGE 1: main site ============ -->
+<div id="page-main">
+
+  <div class="wrap">
+    <nav>
+      <div class="logo"><span class="dot"></span>1.5°C</div>
+      <div class="navlinks">
+        <a href="#data">The data</a>
+        <a href="#why-now">Why now</a>
+        <a href="#act">What to do</a>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div class="eyebrow">The climate math, plainly</div>
+      <h1>Every year we wait costs more than the year before it</h1>
+      <p class="lede">Global temperatures are already about 1.3–1.5°C above pre-industrial levels. The last three years are the first on record to average above the 1.5°C mark scientists have long warned against crossing.</p>
+      <p class="source-note">Sources: Copernicus/ECMWF, NOAA NCEI, Berkeley Earth (2025 reports)</p>
+
+      <div class="statrow">
+        <div class="stat">
+          <div class="num">1.47°C</div>
+          <div class="label">above pre-industrial levels, 2025 (Copernicus)</div>
+        </div>
+        <div class="stat">
+          <div class="num">11</div>
+          <div class="label">of the last 11 years are the warmest on record</div>
+        </div>
+        <div class="stat">
+          <div class="num">~2030</div>
+          <div class="label">when long-term warming may pass 1.5°C at current rates</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="section" id="data">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow" style="color:var(--cool);">The data</div>
+        <h2>A decade of records, not a single bad year</h2>
+        <p>This isn't one hot summer. It's a decade-long climb, and the last three years have pushed past the threshold governments agreed to try to avoid.</p>
+      </div>
+
+      <div class="ticker">
+        <div class="baseline"></div>
+        <div class="tick"><span class="val">1.11</span><div class="bar" style="height:52%;"></div><span class="yr">2015</span></div>
+        <div class="tick"><span class="val">1.25</span><div class="bar" style="height:60%;"></div><span class="yr">2016</span></div>
+        <div class="tick"><span class="val">1.17</span><div class="bar" style="height:55%;"></div><span class="yr">2019</span></div>
+        <div class="tick"><span class="val">1.29</span><div class="bar" style="height:63%;"></div><span class="yr">2023</span></div>
+        <div class="tick current"><span class="val">1.60</span><div class="bar" style="height:82%;"></div><span class="yr">2024</span></div>
+        <div class="tick current"><span class="val">1.47</span><div class="bar" style="height:74%;"></div><span class="yr">2025</span></div>
+      </div>
+      <div class="ticker-legend">
+        <span><span class="swatch" style="background:var(--cool-dim);"></span>below 1.5°C</span>
+        <span><span class="swatch" style="background:var(--heat);"></span>at or above 1.5°C</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="why-now">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Why now, not later</div>
+        <h2>Delay doesn't pause the problem. It compounds it.</h2>
+      </div>
+      <div class="why-grid">
+        <div class="why-card">
+          <span class="tag">Physics, not opinion</span>
+          <h3>Carbon dioxide accumulates</h3>
+          <p>CO₂ released today stays in the atmosphere for centuries. Waiting doesn't just delay the fix — it adds to a total that has to be dealt with either way.</p>
+        </div>
+        <div class="why-card">
+          <span class="tag">Tipping points</span>
+          <h3>Some changes don't reverse easily</h3>
+          <p>Ice sheet loss, coral die-off, and permafrost thaw can cross thresholds where the damage becomes effectively permanent on human timescales.</p>
+        </div>
+        <div class="why-card">
+          <span class="tag">Cost curve</span>
+          <h3>Adaptation gets more expensive later</h3>
+          <p>Clean energy is now often cheaper than fossil alternatives in new installations. The window where the transition is also the cheap option is closing.</p>
+        </div>
+        <div class="why-card">
+          <span class="tag">Every fraction counts</span>
+          <h3>1.5°C isn't a cliff edge</h3>
+          <p>There's no single line where things suddenly become fine or catastrophic. Each additional fraction of a degree adds measurably to the risk of extreme heat, drought, and flooding.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="act">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow" style="color:var(--cool);">What acting now looks like</div>
+        <h2>Not everyone can do everything. Most people can do one thing well.</h2>
+      </div>
+      <div class="actions">
+        <div class="action">
+          <div class="idx">01 — at home</div>
+          <h3>Cut the biggest sources first</h3>
+          <p>Home heating/cooling and transport are usually the largest personal contributors. Efficiency upgrades and lower-carbon transport options tend to matter more than smaller daily swaps.</p>
+        </div>
+        <div class="action">
+          <div class="idx">02 — with money</div>
+          <h3>Follow where it's invested</h3>
+          <p>Pensions, savings, and everyday spending all flow somewhere. Asking where is a low-effort way to add pressure at scale.</p>
+        </div>
+        <div class="action">
+          <div class="idx">03 — with a voice</div>
+          <h3>Local decisions add up</h3>
+          <p>Zoning, transit, and building codes are often decided locally, and local turnout is usually low — a small group of engaged people can move real outcomes.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap final">
+    <h2>The trend is clear. What happens next still isn't written.</h2>
+    <p>See what five years of your own trade-offs might look like.</p>
+    <button class="btn btn-primary" onclick="showPage('game')">Start your journey</button>
+    <p style="margin-top:22px;"><a href="https://climate.copernicus.eu/copernicus-2025-was-third-hottest-year-record" style="font-size:13px; color:var(--ink-dim); font-family:'IBM Plex Mono', monospace;">Read the Copernicus 2025 report →</a></p>
+  </div>
+
+  <div class="wrap">
+    <footer>
+      <span>1.5°C — a plain accounting of the climate math</span>
+      <span>Data: Copernicus / ECMWF, NOAA NCEI, Berkeley Earth</span>
+    </footer>
+  </div>
+
+</div>
+
+<!-- ============ PAGE 2: the game ============ -->
+<div id="page-game">
+
+  <nav class="wrap">
+    <div class="logo"><span class="dot"></span>1.5°C</div>
+    <button class="back" onclick="showPage('main')">← back to the data</button>
+  </nav>
+
+  <div class="game-wrap game">
+
+    <div class="hud">
+      <div class="hud-item">
+        <div class="label">Year</div>
+        <div class="val" id="hud-year">1 / 5</div>
+      </div>
+      <div class="hud-item">
+        <div class="label">Carbon saved</div>
+        <div class="val" id="hud-carbon">0 t</div>
+      </div>
+      <div class="hud-item">
+        <div class="label">Budget spent</div>
+        <div class="val" id="hud-money">$0</div>
+      </div>
+    </div>
+
+    <div class="scene active" data-scene="0">
+      <div class="eyebrow" style="color:var(--cool);">Your climate journey</div>
+      <h2>Five years, one household, real trade-offs</h2>
+      <p class="body">You're managing an average household's decisions over five years. Every choice trades off cost, convenience, and carbon. There's no perfect run — just better and worse ones.</p>
+      <button class="choice" onclick="nextScene(1)"><span class="tag">Begin</span>Start year one</button>
+    </div>
+
+    <div class="scene" data-scene="1">
+      <div class="eyebrow" style="color:var(--cool);">Year 1 — at home</div>
+      <h2>Your heating system needs replacing</h2>
+      <p class="body">The old gas furnace finally died in January. You need something new before winter.</p>
+      <button class="choice" onclick="choose(0, -2000, 0)"><span class="tag">Lower cost</span>Install another gas furnace — cheapest option, keeps emissions the same</button>
+      <button class="choice" onclick="choose(1.2, -5500, 3)"><span class="tag">Balanced</span>Install a heat pump — higher upfront cost, cuts heating emissions roughly in half</button>
+      <button class="choice" onclick="choose(2.1, -9000, 3)"><span class="tag">Highest impact</span>Heat pump plus insulation upgrade — most expensive, biggest year-over-year cut</button>
+    </div>
+
+    <div class="scene" data-scene="2">
+      <div class="eyebrow" style="color:var(--cool);">Year 2 — getting around</div>
+      <h2>Your commute just got longer</h2>
+      <p class="body">A new job means a 40-minute drive each way, five days a week.</p>
+      <button class="choice" onclick="choose(0, 0, 0)"><span class="tag">No change</span>Keep driving your current car — no upfront cost, no change in emissions</button>
+      <button class="choice" onclick="choose(0.9, -3200, 4)"><span class="tag">Balanced</span>Check if transit or carpooling covers most of the route</button>
+      <button class="choice" onclick="choose(1.6, -14000, 3)"><span class="tag">Highest impact</span>Switch to an electric vehicle — largest cost, largest cut if your grid is reasonably clean</button>
+    </div>
+
+    <div class="scene" data-scene="3">
+      <div class="eyebrow" style="color:var(--cool);">Year 3 — with your money</div>
+      <h2>Your pension provider sends its annual update</h2>
+      <p class="body">You get a letter explaining where your retirement savings are currently invested.</p>
+      <button class="choice" onclick="choose(0, 0, 0)"><span class="tag">Skip it</span>File the letter away — takes no time, changes nothing</button>
+      <button class="choice" onclick="choose(0.4, 0, 5)"><span class="tag">Balanced</span>Ask your provider what a lower-carbon fund option would look like</button>
+      <button class="choice" onclick="choose(0.7, -50, 5)"><span class="tag">Highest impact</span>Switch your default fund to their lower-carbon option — small fee, no lifestyle change</button>
+    </div>
+
+    <div class="scene" data-scene="4">
+      <div class="eyebrow" style="color:var(--cool);">Year 4 — locally</div>
+      <h2>There's a city council vote on bike lanes and bus frequency</h2>
+      <p class="body">Turnout for local elections in your area is usually under 20%.</p>
+      <button class="choice" onclick="choose(0, 0, 0)"><span class="tag">Sit it out</span>Skip the vote — it's a small local race, doesn't seem worth it</button>
+      <button class="choice" onclick="choose(0.3, 0, 4)"><span class="tag">Balanced</span>Vote, but don't look much further into it</button>
+      <button class="choice" onclick="choose(0.5, 0, 4)"><span class="tag">Highest impact</span>Vote and show up to the public comment session — takes an evening</button>
+    </div>
+
+    <div class="scene" data-scene="5">
+      <div class="eyebrow" style="color:var(--cool);">Year 5 — day to day</div>
+      <h2>You're rethinking your weekly grocery routine</h2>
+      <p class="body">Red meat and dairy tend to carry a larger footprint per meal than most alternatives.</p>
+      <button class="choice" onclick="choose(0, 0, 0)"><span class="tag">No change</span>Keep your routine as it is</button>
+      <button class="choice" onclick="choose(0.6, -200, 2)"><span class="tag">Balanced</span>Swap a couple of meals a week for lower-footprint options</button>
+      <button class="choice" onclick="choose(1.1, -400, 2)"><span class="tag">Highest impact</span>Cut red meat to occasional — biggest shift, takes more adjusting</button>
+    </div>
+
+    <div class="scene" data-scene="end">
+      <div class="eyebrow" style="color:var(--cool);">Five years later</div>
+      <h2 id="end-headline">Here's where you landed</h2>
+      <p class="body" id="end-body"></p>
+      <div class="end-stats">
+        <div class="end-stat">
+          <div class="num" id="end-carbon">0 t</div>
+          <div class="label">Estimated CO₂ saved per year, vs. no changes</div>
+        </div>
+        <div class="end-stat">
+          <div class="num" id="end-money">$0</div>
+          <div class="label">Total spent across five years</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost" onclick="restartGame()" style="margin-right:10px;">Play again</button>
+      <button class="btn btn-primary" onclick="showPage('arcade')" style="margin-right:10px;">Play Air Cleaner →</button>
+      <button class="btn btn-ghost" onclick="showPage('main')">Back to the data</button>
+    </div>
+
+  </div>
+
+  <div class="wrap">
+    <footer>
+      <span>Illustrative estimates for a typical household — not a personal carbon calculator.</span>
+    </footer>
+  </div>
+
+</div>
+
+<!-- ============ PAGE 3: Air Cleaner arcade ============ -->
+<div id="page-arcade" style="display:none;">
+  <nav class="wrap">
+    <div class="logo"><span class="dot"></span>1.5°C</div>
+    <button class="back" onclick="showPage('game')">← back to your journey</button>
+  </nav>
+  <div style="display:flex; justify-content:center; padding:32px 16px 64px;">
+    <iframe id="arcade-iframe" title="Air Cleaner game" style="width:900px; max-width:100%; height:560px; border:0; border-radius:12px;" loading="lazy"></iframe>
+  </div>
+</div>
+
+<script>
+  document.getElementById('arcade-iframe').src = "data:text/html;base64,PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9InV0Zi04Ij4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCxpbml0aWFsLXNjYWxlPTEiPgo8dGl0bGU+QWlyIENsZWFuZXI8L3RpdGxlPgo8c3R5bGU+CiAgaHRtbCxib2R5e21hcmdpbjowO2hlaWdodDoxMDAlO2JhY2tncm91bmQ6IzBkMTExNztkaXNwbGF5OmZsZXg7YWxpZ24taXRlbXM6Y2VudGVyOwogICAganVzdGlmeS1jb250ZW50OmNlbnRlcjtmb250LWZhbWlseTpzeXN0ZW0tdWksc2Fucy1zZXJpZjtvdmVyZmxvdzpoaWRkZW47fQogIGNhbnZhc3ttYXgtd2lkdGg6MTAwJTttYXgtaGVpZ2h0OjEwMHZoO3RvdWNoLWFjdGlvbjpub25lOwogICAgYm9yZGVyLXJhZGl1czoxMnB4O2JveC1zaGFkb3c6MCAwIDQwcHggcmdiYSgwLDAsMCwuNik7Y3Vyc29yOmNyb3NzaGFpcjt9Cjwvc3R5bGU+CjwvaGVhZD4KPGJvZHk+CjxjYW52YXMgaWQ9ImdhbWUiIHdpZHRoPSI5MDAiIGhlaWdodD0iNTYwIj48L2NhbnZhcz4KPHNjcmlwdD4KY29uc3QgY3Y9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2dhbWUnKSxjdHg9Y3YuZ2V0Q29udGV4dCgnMmQnKSxXPTkwMCxIPTU2MDsKCmNvbnN0IFRZUEVTPXsKICBkdXN0OiAge2hwOjEscjoxNCxzcDo2NSwgcHRzOjEwLGRtZzozLCBjb2w6JyNjMmFkOTAnLG5hbWU6J0R1c3QgTW90ZSd9LAogIGZ1bWU6ICB7aHA6MSxyOjE2LHNwOjE1NSxwdHM6MjAsZG1nOjUsIGNvbDonIzhiOThhNicsbmFtZTonRXhoYXVzdCBGdW1lJ30sCiAgc21vZzogIHtocDozLHI6MjYsc3A6NTUsIHB0czozNSxkbWc6OCwgY29sOicjNWM2NjczJyxuYW1lOidTbW9nIEJsb2InfSwKICBlbWJlcjoge2hwOjEscjoxMixzcDoyMTUscHRzOjMwLGRtZzo0LCBjb2w6JyNmZjdhM2QnLG5hbWU6J0VtYmVyJ30sCiAgc3RhY2s6IHtocDo4LHI6MzAsc3A6NDUsIHB0czo2MCxkbWc6MTAsY29sOicjMzk0MjRkJyxuYW1lOidTbW9rZXN0YWNrJ30sCiAgYm9zczogIHtocDoxLHI6NTgsc3A6MCwgIHB0czo2MDAsZG1nOjQwLGNvbDonIzJiMzMzYycsbmFtZTonTUVHQSBTTU9LRVNUQUNLJ30KfTsKY29uc3QgRFJPUFM9ewogIGhlcGE6ICB7Y29sOicjNGFkZTgwJyxsYWJlbDonSCd9LAogIHB1cmdlOiB7Y29sOicjMzhiZGY4JyxsYWJlbDonUCd9LAogIGZpbHRlcjp7Y29sOicjZmFjYzE1JyxsYWJlbDonRid9Cn07CgpsZXQgc3RhdGU9J21lbnUnLHNjb3JlPTAsYmVzdD0wLHdhdmU9MCxhcWk9MCxjb21ibz0wLHNoYWtlPTAsdGltZT0wOwpsZXQgcGxheWVyLGJ1bGxldHMsZW5lbWllcyxzaG90cyxkcm9wcyxwYXJ0cyxxdWV1ZSxiYW5uZXI7CmNvbnN0IGtleXM9e307bGV0IHB0cj17eDpXLzIsYWN0aXZlOmZhbHNlLGRvd246ZmFsc2V9OwoKZnVuY3Rpb24gbXVsdCgpe3JldHVybiAxK01hdGgubWluKDQsTWF0aC5mbG9vcihjb21iby81KSk7fQoKZnVuY3Rpb24gcmVzZXQoKXsKICBzY29yZT0wO3dhdmU9MDthcWk9MDtjb21ibz0wO3NoYWtlPTA7CiAgcGxheWVyPXt4OlcvMix5OkgtNTgsdzo1OCxoOjM0LHNwOjQ0MCxjb29sOjAsaGVwYTowLGludjowfTsKICBidWxsZXRzPVtdO2VuZW1pZXM9W107c2hvdHM9W107ZHJvcHM9W107cGFydHM9W107cXVldWU9W107CiAgYmFubmVyPXt0eHQ6JycsdDowfTsKICBuZXh0V2F2ZSgpOwp9CgpmdW5jdGlvbiBuZXh0V2F2ZSgpewogIHdhdmUrKzsKICBpZih3YXZlJTU9PT0wKXsKICAgIGJhbm5lcj17dHh0OidXQVZFICcrd2F2ZSsnIOKAlCAnK1RZUEVTLmJvc3MubmFtZSx0OjIuMn07CiAgICBjb25zdCBocD01NSt3YXZlKjE0OwogICAgZW5lbWllcy5wdXNoKHt0eXBlOidib3NzJyx4OlcvMix5Oi05MCxyOjU4LGhwLG1heDpocCx0OjAsdng6MTIwLGNvb2w6MixmbGFzaDowfSk7CiAgICByZXR1cm47CiAgfQogIGJhbm5lcj17dHh0OidXQVZFICcrd2F2ZSx0OjEuNn07CiAgY29uc3QgcG9vbD1bJ2R1c3QnXTsKICBpZih3YXZlPj0yKXBvb2wucHVzaCgnZnVtZScpOwogIGlmKHdhdmU+PTMpcG9vbC5wdXNoKCdzbW9nJyk7CiAgaWYod2F2ZT49NClwb29sLnB1c2goJ2VtYmVyJyk7CiAgaWYod2F2ZT49Nilwb29sLnB1c2goJ3N0YWNrJyk7CiAgY29uc3Qgbj02K3dhdmUqMixnYXA9TWF0aC5tYXgoMC4yOCwwLjk1LXdhdmUqMC4wNDUpOwogIGZvcihsZXQgaT0wO2k8bjtpKyspCiAgICBxdWV1ZS5wdXNoKHt0eXBlOnBvb2xbTWF0aC5yYW5kb20oKSpwb29sLmxlbmd0aHwwXSx0Omk9PT0wPzE6Z2FwKigwLjYrTWF0aC5yYW5kb20oKSowLjgpfSk7Cn0KCmZ1bmN0aW9uIHNwYXduKHR5cGUpewogIGNvbnN0IGQ9VFlQRVNbdHlwZV07CiAgZW5lbWllcy5wdXNoKHt0eXBlLHg6NDQrTWF0aC5yYW5kb20oKSooVy04OCkseTotNDAscjpkLnIsaHA6ZC5ocCxtYXg6ZC5ocCwKICAgIHQ6TWF0aC5yYW5kb20oKSo2LHZ4OihNYXRoLnJhbmRvbSgpPC41Py0xOjEpKmQuc3AsY29vbDoxK01hdGgucmFuZG9tKCkqMixmbGFzaDowfSk7Cn0KCmZ1bmN0aW9uIGJ1cnN0KHgseSxjb2wsbil7CiAgZm9yKGxldCBpPTA7aTxuO2krKyl7CiAgICBjb25zdCBhPU1hdGgucmFuZG9tKCkqNi4yODMscz00MCtNYXRoLnJhbmRvbSgpKjE5MDsKICAgIHBhcnRzLnB1c2goe3gseSx2eDpNYXRoLmNvcyhhKSpzLHZ5Ok1hdGguc2luKGEpKnMsbGlmZTouNStNYXRoLnJhbmRvbSgpKi41LGNvbCxyOjErTWF0aC5yYW5kb20oKSozfSk7CiAgfQp9CgpmdW5jdGlvbiBmaXJlKCl7CiAgY29uc3QgeT1wbGF5ZXIueS0yMDsKICBpZihwbGF5ZXIuaGVwYT4wKXsKICAgIGJ1bGxldHMucHVzaCh7eDpwbGF5ZXIueCx5LHZ4OjAsdnk6LTY4MH0pOwogICAgYnVsbGV0cy5wdXNoKHt4OnBsYXllci54LTE0LHk6eSs2LHZ4Oi0xNTAsdnk6LTY2MH0pOwogICAgYnVsbGV0cy5wdXNoKHt4OnBsYXllci54KzE0LHk6eSs2LHZ4OjE1MCx2eTotNjYwfSk7CiAgfSBlbHNlIGJ1bGxldHMucHVzaCh7eDpwbGF5ZXIueCx5LHZ4OjAsdnk6LTY4MH0pOwogIHBsYXllci5jb29sPXBsYXllci5oZXBhPjA/MC4xMTowLjE2Owp9CgpmdW5jdGlvbiBodXJ0KG4pe2FxaT1NYXRoLm1pbigxMDAsYXFpK24pO2NvbWJvPTA7c2hha2U9TWF0aC5tYXgoc2hha2UsOCk7CiAgaWYoYXFpPj0xMDApe3N0YXRlPSdvdmVyJztiZXN0PU1hdGgubWF4KGJlc3Qsc2NvcmUpO319CgpmdW5jdGlvbiBraWxsKGUpewogIGNvbnN0IGQ9VFlQRVNbZS50eXBlXTsKICBzY29yZSs9ZC5wdHMqbXVsdCgpO2NvbWJvKys7CiAgYnVyc3QoZS54LGUueSxkLmNvbCxlLnR5cGU9PT0nYm9zcyc/NzA6MTYpOwogIGlmKGUudHlwZT09PSdib3NzJyl7c2hha2U9MjI7YmFubmVyPXt0eHQ6J0JPU1MgUFVSSUZJRUQhICsnK2QucHRzKm11bHQoKSx0OjJ9O3Njb3JlKz1kLnB0cyptdWx0KCk7fQogIGlmKGUudHlwZT09PSdzbW9nJylmb3IobGV0IGk9MDtpPDI7aSsrKQogICAgZW5lbWllcy5wdXNoKHt0eXBlOidkdXN0Jyx4OmUueCsoaT8xODotMTgpLHk6ZS55LHI6MTQsaHA6MSxtYXg6MSx0Ok1hdGgucmFuZG9tKCkqNix2eDowLGNvb2w6OSxmbGFzaDowfSk7CiAgaWYoTWF0aC5yYW5kb20oKTwoZS50eXBlPT09J2Jvc3MnPzE6MC4wOSkpewogICAgY29uc3Qgaz1PYmplY3Qua2V5cyhEUk9QUylbTWF0aC5yYW5kb20oKSozfDBdOwogICAgZHJvcHMucHVzaCh7eDplLngseTplLnksa2luZDprLHQ6MH0pOwogIH0KfQoKZnVuY3Rpb24gdXBkYXRlKGR0KXsKICB0aW1lKz1kdDsKICBpZihzaGFrZT4wKXNoYWtlPU1hdGgubWF4KDAsc2hha2UtZHQqMzApOwogIGlmKGJhbm5lci50PjApYmFubmVyLnQtPWR0OwoKICAvLyAtLS0tIHBsYXllciAtLS0tCiAgbGV0IGRpcj0wOwogIGlmKGtleXMuQXJyb3dMZWZ0fHxrZXlzLmEpZGlyLS07CiAgaWYoa2V5cy5BcnJvd1JpZ2h0fHxrZXlzLmQpZGlyKys7CiAgaWYoZGlyKXBsYXllci54Kz1kaXIqcGxheWVyLnNwKmR0OwogIGVsc2UgaWYocHRyLmFjdGl2ZSlwbGF5ZXIueCs9KHB0ci54LXBsYXllci54KSpNYXRoLm1pbigxLGR0KjE0KTsKICBwbGF5ZXIueD1NYXRoLm1heCgzMixNYXRoLm1pbihXLTMyLHBsYXllci54KSk7CiAgcGxheWVyLmNvb2wtPWR0OwogIGlmKHBsYXllci5oZXBhPjApcGxheWVyLmhlcGEtPWR0OwogIGlmKHBsYXllci5pbnY+MClwbGF5ZXIuaW52LT1kdDsKICBpZigoa2V5c1snICddfHxwdHIuZG93bikmJnBsYXllci5jb29sPD0wKWZpcmUoKTsKCiAgLy8gLS0tLSBzcGF3bnMgLS0tLQogIGlmKHF1ZXVlLmxlbmd0aCl7CiAgICBxdWV1ZVswXS50LT1kdDsKICAgIGlmKHF1ZXVlWzBdLnQ8PTApc3Bhd24ocXVldWUuc2hpZnQoKS50eXBlKTsKICB9IGVsc2UgaWYoIWVuZW1pZXMubGVuZ3RoKW5leHRXYXZlKCk7CgogIC8vIC0tLS0gYnVsbGV0cyAtLS0tCiAgZm9yKGxldCBpPWJ1bGxldHMubGVuZ3RoLTE7aT49MDtpLS0pewogICAgY29uc3QgYj1idWxsZXRzW2ldO2IueCs9Yi52eCpkdDtiLnkrPWIudnkqZHQ7CiAgICBpZihiLnk8LTIwKWJ1bGxldHMuc3BsaWNlKGksMSk7CiAgfQoKICAvLyAtLS0tIGVuZW1pZXMgLS0tLQogIGZvcihsZXQgaT1lbmVtaWVzLmxlbmd0aC0xO2k+PTA7aS0tKXsKICAgIGNvbnN0IGU9ZW5lbWllc1tpXSxkPVRZUEVTW2UudHlwZV07CiAgICBlLnQrPWR0O2lmKGUuZmxhc2g+MCllLmZsYXNoLT1kdDsKCiAgICBpZihlLnR5cGU9PT0nZHVzdCcpe2UueSs9ZC5zcCpkdDtlLngrPU1hdGguc2luKGUudCoxLjYpKjQwKmR0O30KICAgIGVsc2UgaWYoZS50eXBlPT09J2Z1bWUnKXtlLnkrPWQuc3AqZHQ7ZS54Kz1NYXRoLnNpZ24ocGxheWVyLngtZS54KSo1NSpkdDt9CiAgICBlbHNlIGlmKGUudHlwZT09PSdzbW9nJyl7ZS55Kz1kLnNwKmR0O2UueCs9ZS52eCowLjU1KmR0OwogICAgICBpZihlLng8ZS5yfHxlLng+Vy1lLnIpZS52eCo9LTE7fQogICAgZWxzZSBpZihlLnR5cGU9PT0nZW1iZXInKXtlLnkrPWQuc3AqZHQ7ZS54Kz1NYXRoLnNpbihlLnQqNykqMTgwKmR0O30KICAgIGVsc2UgaWYoZS50eXBlPT09J3N0YWNrJyl7CiAgICAgIGlmKGUueTwxNTApZS55Kz1kLnNwKmR0OwogICAgICBlbHNle2UueCs9ZS52eCowLjM1KmR0O2lmKGUueDxlLnJ8fGUueD5XLWUucillLnZ4Kj0tMTsKICAgICAgICBlLmNvb2wtPWR0O2lmKGUuY29vbDw9MCl7ZS5jb29sPTEuOTtzaG90cy5wdXNoKHt4OmUueCx5OmUueSsyMix2eDowLHZ5OjIxMH0pO319CiAgICB9CiAgICBlbHNlIGlmKGUudHlwZT09PSdib3NzJyl7CiAgICAgIGlmKGUueTwxMTUpZS55Kz03MCpkdDsKICAgICAgZWxzZXsKICAgICAgICBlLngrPWUudngqZHQ7aWYoZS54PDkwfHxlLng+Vy05MCllLnZ4Kj0tMTsKICAgICAgICBlLmNvb2wtPWR0OwogICAgICAgIGlmKGUuY29vbDw9MCl7CiAgICAgICAgICBlLmNvb2w9MS4zOwogICAgICAgICAgZm9yKGxldCBhPS0yO2E8PTI7YSsrKXNob3RzLnB1c2goe3g6ZS54LHk6ZS55KzQwLHZ4OmEqNzIsdnk6MjAwfSk7CiAgICAgICAgICBpZihNYXRoLnJhbmRvbSgpPDAuNSlzcGF3bignZnVtZScpOwogICAgICAgIH0KICAgICAgfQogICAgfQoKICAgIC8vIGJ1bGxldCBoaXRzCiAgICBmb3IobGV0IGo9YnVsbGV0cy5sZW5ndGgtMTtqPj0wO2otLSl7CiAgICAgIGNvbnN0IGI9YnVsbGV0c1tqXTsKICAgICAgaWYoKGIueC1lLngpKioyKyhiLnktZS55KSoqMjxlLnIqZS5yKXsKICAgICAgICBidWxsZXRzLnNwbGljZShqLDEpO2UuaHAtLTtlLmZsYXNoPS4wODsKICAgICAgICBidXJzdChiLngsYi55LCcjZGZmNmZmJywzKTsKICAgICAgICBpZihlLmhwPD0wKXtraWxsKGUpO2VuZW1pZXMuc3BsaWNlKGksMSk7YnJlYWs7fQogICAgICB9CiAgICB9CiAgICBpZihlLmhwPD0wKWNvbnRpbnVlOwoKICAgIC8vIHJlYWNoZWQgdGhlIGdyb3VuZAogICAgaWYoZS55LWUucj5IKXtlbmVtaWVzLnNwbGljZShpLDEpO2h1cnQoZC5kbWcpO2NvbnRpbnVlO30KCiAgICAvLyB0b3VjaGVkIHRoZSBwdXJpZmllcgogICAgaWYocGxheWVyLmludjw9MCYmTWF0aC5hYnMoZS54LXBsYXllci54KTxlLnIrMjYmJk1hdGguYWJzKGUueS1wbGF5ZXIueSk8ZS5yKzE4KXsKICAgICAgZW5lbWllcy5zcGxpY2UoaSwxKTtodXJ0KGQuZG1nKzQpO3BsYXllci5pbnY9MTtidXJzdChlLngsZS55LGQuY29sLDE0KTsKICAgIH0KICB9CgogIC8vIC0tLS0gZW5lbXkgc2hvdHMgLS0tLQogIGZvcihsZXQgaT1zaG90cy5sZW5ndGgtMTtpPj0wO2ktLSl7CiAgICBjb25zdCBzPXNob3RzW2ldO3MueCs9cy52eCpkdDtzLnkrPXMudnkqZHQ7CiAgICBpZihzLnk+SCsyMCl7c2hvdHMuc3BsaWNlKGksMSk7Y29udGludWU7fQogICAgaWYocGxheWVyLmludjw9MCYmTWF0aC5hYnMocy54LXBsYXllci54KTwzMCYmTWF0aC5hYnMocy55LXBsYXllci55KTwyMCl7CiAgICAgIHNob3RzLnNwbGljZShpLDEpO2h1cnQoNyk7cGxheWVyLmludj0uODsKICAgIH0KICB9CgogIC8vIC0tLS0gZHJvcHMgLS0tLQogIGZvcihsZXQgaT1kcm9wcy5sZW5ndGgtMTtpPj0wO2ktLSl7CiAgICBjb25zdCBwPWRyb3BzW2ldO3AueSs9OTUqZHQ7cC50Kz1kdDsKICAgIGlmKHAueT5IKzIwKXtkcm9wcy5zcGxpY2UoaSwxKTtjb250aW51ZTt9CiAgICBpZihNYXRoLmFicyhwLngtcGxheWVyLngpPDM2JiZNYXRoLmFicyhwLnktcGxheWVyLnkpPDI2KXsKICAgICAgaWYocC5raW5kPT09J2hlcGEnKXtwbGF5ZXIuaGVwYT0xMjtiYW5uZXI9e3R4dDonSEVQQSBGSUxURVIg4oCUIFRSSVBMRSBKRVQnLHQ6MS4zfTt9CiAgICAgIGlmKHAua2luZD09PSdmaWx0ZXInKXthcWk9TWF0aC5tYXgoMCxhcWktMjUpO2Jhbm5lcj17dHh0OidGSUxURVIgU1dBUCDigJQgQVFJIOKIkjI1Jyx0OjEuM307fQogICAgICBpZihwLmtpbmQ9PT0ncHVyZ2UnKXsKICAgICAgICBiYW5uZXI9e3R4dDonSU9OSVpFUiBQVVJHRSEnLHQ6MS4zfTtzaGFrZT0xNjsKICAgICAgICBmb3IobGV0IGs9ZW5lbWllcy5sZW5ndGgtMTtrPj0wO2stLSl7CiAgICAgICAgICBjb25zdCBlPWVuZW1pZXNba107CiAgICAgICAgICBpZihlLnR5cGU9PT0nYm9zcycpe2UuaHAtPTMwO2UuZmxhc2g9LjE1O30KICAgICAgICAgIGVsc2V7a2lsbChlKTtlbmVtaWVzLnNwbGljZShrLDEpO30KICAgICAgICB9CiAgICAgICAgc2hvdHMubGVuZ3RoPTA7CiAgICAgIH0KICAgICAgZHJvcHMuc3BsaWNlKGksMSk7CiAgICB9CiAgfQoKICAvLyAtLS0tIHBhcnRpY2xlcyAtLS0tCiAgZm9yKGxldCBpPXBhcnRzLmxlbmd0aC0xO2k+PTA7aS0tKXsKICAgIGNvbnN0IHA9cGFydHNbaV07cC54Kz1wLnZ4KmR0O3AueSs9cC52eSpkdDtwLnZ5Kz0xNDAqZHQ7cC5saWZlLT1kdDsKICAgIGlmKHAubGlmZTw9MClwYXJ0cy5zcGxpY2UoaSwxKTsKICB9Cn0KCmZ1bmN0aW9uIHJvdW5kUmVjdCh4LHksdyxoLHIpewogIGN0eC5iZWdpblBhdGgoKTtjdHgubW92ZVRvKHgrcix5KTsKICBjdHguYXJjVG8oeCt3LHkseCt3LHkraCxyKTtjdHguYXJjVG8oeCt3LHkraCx4LHkraCxyKTsKICBjdHguYXJjVG8oeCx5K2gseCx5LHIpO2N0eC5hcmNUbyh4LHkseCt3LHkscik7Y3R4LmNsb3NlUGF0aCgpOwp9CgpmdW5jdGlvbiBkcmF3RW5lbXkoZSl7CiAgY29uc3QgZD1UWVBFU1tlLnR5cGVdOwogIGN0eC5zYXZlKCk7Y3R4LnRyYW5zbGF0ZShlLngsZS55KTsKICBjdHguZmlsbFN0eWxlPWUuZmxhc2g+MD8nI2ZmZic6ZC5jb2w7CiAgaWYoZS50eXBlPT09J2VtYmVyJyl7CiAgICBjdHguc2hhZG93Q29sb3I9JyNmZjdhM2QnO2N0eC5zaGFkb3dCbHVyPTE4OwogICAgY3R4LmJlZ2luUGF0aCgpO2N0eC5hcmMoMCwwLGUuciwwLDYuMjgzKTtjdHguZmlsbCgpOwogIH0gZWxzZSBpZihlLnR5cGU9PT0nc3RhY2snfHxlLnR5cGU9PT0nYm9zcycpewogICAgY29uc3Qgdz1lLnIqMS41LGg9ZS5yKjEuMzsKICAgIHJvdW5kUmVjdCgtdy8yLC1oLzIsdyxoLDcpO2N0eC5maWxsKCk7CiAgICBjdHguZmlsbFN0eWxlPScjMWIyMDI3JzsKICAgIGN0eC5maWxsUmVjdCgtdyowLjMsLWgvMi0xMCx3KjAuMjIsMTIpO2N0eC5maWxsUmVjdCh3KjAuMDgsLWgvMi0xMCx3KjAuMjIsMTIpOwogICAgY3R4LmZpbGxTdHlsZT0ncmdiYSgyNTUsMTIwLDYwLC44NSknOwogICAgZm9yKGxldCBpPS0xO2k8MjtpKz0yKWN0eC5maWxsUmVjdChpKncqMC4yLTUsMCwxMCw2KTsKICB9IGVsc2UgewogICAgY3R4LmJlZ2luUGF0aCgpOwogICAgZm9yKGxldCBhPTA7YTw2LjI4MzthKz0wLjUpewogICAgICBjb25zdCBycj1lLnIqKDErTWF0aC5zaW4oYSozK2UudCoyKSowLjEyKTsKICAgICAgY3R4LmxpbmVUbyhNYXRoLmNvcyhhKSpycixNYXRoLnNpbihhKSpycik7CiAgICB9CiAgICBjdHguY2xvc2VQYXRoKCk7Y3R4LmZpbGwoKTsKICB9CiAgY3R4LnJlc3RvcmUoKTsKICBpZihlLm1heD4yKXsKICAgIGNvbnN0IHc9ZS5yKjI7CiAgICBjdHguZmlsbFN0eWxlPSdyZ2JhKDAsMCwwLC40NSknO2N0eC5maWxsUmVjdChlLngtdy8yLGUueS1lLnItMTIsdyw1KTsKICAgIGN0eC5maWxsU3R5bGU9JyNmZjViNWInO2N0eC5maWxsUmVjdChlLngtdy8yLGUueS1lLnItMTIsdypNYXRoLm1heCgwLGUuaHAvZS5tYXgpLDUpOwogIH0KfQoKZnVuY3Rpb24gZHJhdygpewogIGN0eC5zYXZlKCk7CiAgaWYoc2hha2U+MCljdHgudHJhbnNsYXRlKChNYXRoLnJhbmRvbSgpLS41KSpzaGFrZSwoTWF0aC5yYW5kb20oKS0uNSkqc2hha2UpOwoKICAvLyBza3kgZGFya2VucyB3aXRoIHBvbGx1dGlvbgogIGNvbnN0IGY9YXFpLzEwMCxnPWN0eC5jcmVhdGVMaW5lYXJHcmFkaWVudCgwLDAsMCxIKTsKICBnLmFkZENvbG9yU3RvcCgwLGByZ2IoJHs0MCsxNTAqZn0sJHs5MCs3MCpmfSwkezE1MC00MCpmfSlgKTsKICBnLmFkZENvbG9yU3RvcCgxLGByZ2IoJHsxNDArODAqZn0sJHsxODArMzAqZn0sJHsyMDUtNzAqZn0pYCk7CiAgY3R4LmZpbGxTdHlsZT1nO2N0eC5maWxsUmVjdCgwLDAsVyxIKTsKICBjdHguZmlsbFN0eWxlPSdyZ2JhKDI1NSwyNTUsMjU1LC4wOSknOwogIGZvcihsZXQgaT0wO2k8NTtpKyspewogICAgY29uc3QgeD0oaSoyNjArdGltZSoxMiklKFcrMzAwKS0xNTA7CiAgICBjdHguYmVnaW5QYXRoKCk7Y3R4LmVsbGlwc2UoeCw3MCtpKjM4LDExMCwyNiwwLDAsNi4yODMpO2N0eC5maWxsKCk7CiAgfQogIGN0eC5maWxsU3R5bGU9J3JnYmEoMzAsNDUsMzAsLjU1KSc7Y3R4LmZpbGxSZWN0KDAsSC0yNixXLDI2KTsKCiAgcGFydHMuZm9yRWFjaChwPT57Y3R4Lmdsb2JhbEFscGhhPU1hdGgubWF4KDAscC5saWZlKTtjdHguZmlsbFN0eWxlPXAuY29sOwogICAgY3R4LmZpbGxSZWN0KHAueCxwLnkscC5yLHAucik7fSk7CiAgY3R4Lmdsb2JhbEFscGhhPTE7CgogIGVuZW1pZXMuZm9yRWFjaChkcmF3RW5lbXkpOwoKICBjdHguZmlsbFN0eWxlPScjNWI2YjdhJzsKICBzaG90cy5mb3JFYWNoKHM9PntjdHguYmVnaW5QYXRoKCk7Y3R4LmFyYyhzLngscy55LDYsMCw2LjI4Myk7Y3R4LmZpbGwoKTt9KTsKCiAgZHJvcHMuZm9yRWFjaChwPT57CiAgICBjb25zdCBkPURST1BTW3Aua2luZF07CiAgICBjdHguZmlsbFN0eWxlPWQuY29sO2N0eC5zaGFkb3dDb2xvcj1kLmNvbDtjdHguc2hhZG93Qmx1cj0xNDsKICAgIHJvdW5kUmVjdChwLngtMTMscC55LTEzLDI2LDI2LDYpO2N0eC5maWxsKCk7Y3R4LnNoYWRvd0JsdXI9MDsKICAgIGN0eC5maWxsU3R5bGU9JyMwNjI1MWEnO2N0eC5mb250PSdib2xkIDE1cHggc3lzdGVtLXVpJztjdHgudGV4dEFsaWduPSdjZW50ZXInOwogICAgY3R4LmZpbGxUZXh0KGQubGFiZWwscC54LHAueSs1KTsKICB9KTsKCiAgY3R4LmZpbGxTdHlsZT0nI2U5ZmJmZic7Y3R4LnNoYWRvd0NvbG9yPScjOWJlOGZmJztjdHguc2hhZG93Qmx1cj0xMjsKICBidWxsZXRzLmZvckVhY2goYj0+e3JvdW5kUmVjdChiLngtMyxiLnktMTIsNiwxNiwzKTtjdHguZmlsbCgpO30pOwogIGN0eC5zaGFkb3dCbHVyPTA7CgogIC8vIHB1cmlmaWVyCiAgaWYoIShwbGF5ZXIuaW52PjAmJk1hdGguZmxvb3IodGltZSoxOCklMikpewogICAgY3R4LnNhdmUoKTtjdHgudHJhbnNsYXRlKHBsYXllci54LHBsYXllci55KTsKICAgIGN0eC5maWxsU3R5bGU9JyNkZmU5ZjAnO3JvdW5kUmVjdCgtMjksLTE0LDU4LDI4LDkpO2N0eC5maWxsKCk7CiAgICBjdHguZmlsbFN0eWxlPXBsYXllci5oZXBhPjA/JyM0YWRlODAnOicjNjNjN2ZmJzsKICAgIHJvdW5kUmVjdCgtMTUsLTIyLDMwLDEyLDUpO2N0eC5maWxsKCk7CiAgICBjdHguZmlsbFN0eWxlPScjMmEzYjQ5Jztyb3VuZFJlY3QoLTIyLDIsNDQsOCw0KTtjdHguZmlsbCgpOwogICAgY3R4LmZpbGxTdHlsZT0ncmdiYSgxMjAsMjIwLDI1NSwuMzUpJzsKICAgIGN0eC5iZWdpblBhdGgoKTtjdHgubW92ZVRvKC0xNCwtMjIpO2N0eC5saW5lVG8oMCwtNjApO2N0eC5saW5lVG8oMTQsLTIyKTtjdHguZmlsbCgpOwogICAgY3R4LnJlc3RvcmUoKTsKICB9CiAgY3R4LnJlc3RvcmUoKTsKCiAgLy8gSFVECiAgY3R4LnRleHRBbGlnbj0nbGVmdCc7Y3R4LmZpbGxTdHlsZT0nI2ZmZic7Y3R4LmZvbnQ9J2JvbGQgMjJweCBzeXN0ZW0tdWknOwogIGN0eC5maWxsVGV4dCgnU0NPUkUgJytzY29yZSwxOCwzMik7CiAgY3R4LmZvbnQ9JzE0cHggc3lzdGVtLXVpJztjdHguZmlsbFN0eWxlPSdyZ2JhKDI1NSwyNTUsMjU1LC44NSknOwogIGN0eC5maWxsVGV4dCgnQkVTVCAnK2Jlc3QsMTgsNTIpOwogIGlmKG11bHQoKT4xKXtjdHguZmlsbFN0eWxlPScjZmZkNzZiJztjdHguZm9udD0nYm9sZCAxN3B4IHN5c3RlbS11aSc7CiAgICBjdHguZmlsbFRleHQoJ0NPTUJPIMOXJyttdWx0KCksMTgsNzYpO30KCiAgY3R4LnRleHRBbGlnbj0ncmlnaHQnO2N0eC5maWxsU3R5bGU9JyNmZmYnO2N0eC5mb250PSdib2xkIDIwcHggc3lzdGVtLXVpJzsKICBjdHguZmlsbFRleHQoJ1dBVkUgJyt3YXZlLFctMTgsMzIpOwogIGlmKHBsYXllci5oZXBhPjApe2N0eC5maWxsU3R5bGU9JyM0YWRlODAnO2N0eC5mb250PSdib2xkIDE0cHggc3lzdGVtLXVpJzsKICAgIGN0eC5maWxsVGV4dCgnSEVQQSAnK3BsYXllci5oZXBhLnRvRml4ZWQoMSkrJ3MnLFctMTgsNTQpO30KCiAgY29uc3QgYnc9MzAwLGJ4PVcvMi1idy8yOwogIGN0eC5maWxsU3R5bGU9J3JnYmEoMCwwLDAsLjQpJztyb3VuZFJlY3QoYngsMTQsYncsMTgsOSk7Y3R4LmZpbGwoKTsKICBjdHguZmlsbFN0eWxlPWFxaTw0MD8nIzRhZGU4MCc6YXFpPDc1PycjZmFjYzE1JzonI2ZmNWI1Yic7CiAgcm91bmRSZWN0KGJ4LDE0LGJ3KihhcWkvMTAwKSwxOCw5KTtjdHguZmlsbCgpOwogIGN0eC5maWxsU3R5bGU9JyNmZmYnO2N0eC5mb250PSdib2xkIDEycHggc3lzdGVtLXVpJztjdHgudGV4dEFsaWduPSdjZW50ZXInOwogIGN0eC5maWxsVGV4dCgnQUlSIFFVQUxJVFkgSU5ERVggICcrTWF0aC5yb3VuZChhcWkpKycgLyAxMDAnLFcvMiwyNyk7CgogIGlmKGJhbm5lci50PjApewogICAgY3R4Lmdsb2JhbEFscGhhPU1hdGgubWluKDEsYmFubmVyLnQpOwogICAgY3R4LmZpbGxTdHlsZT0nI2ZmZic7Y3R4LmZvbnQ9J2JvbGQgMzRweCBzeXN0ZW0tdWknOwogICAgY3R4LmZpbGxUZXh0KGJhbm5lci50eHQsVy8yLEgvMi00MCk7Y3R4Lmdsb2JhbEFscGhhPTE7CiAgfQp9CgpmdW5jdGlvbiBvdmVybGF5KHRpdGxlLGxpbmVzKXsKICBjdHguZmlsbFN0eWxlPSdyZ2JhKDgsMTIsMTgsLjgyKSc7Y3R4LmZpbGxSZWN0KDAsMCxXLEgpOwogIGN0eC50ZXh0QWxpZ249J2NlbnRlcic7Y3R4LmZpbGxTdHlsZT0nIzdlZTBmZic7Y3R4LmZvbnQ9J2JvbGQgNTJweCBzeXN0ZW0tdWknOwogIGN0eC5maWxsVGV4dCh0aXRsZSxXLzIsSC8yLTcwKTsKICBjdHguZmlsbFN0eWxlPScjZGJlNmVmJztjdHguZm9udD0nMTZweCBzeXN0ZW0tdWknOwogIGxpbmVzLmZvckVhY2goKGwsaSk9PmN0eC5maWxsVGV4dChsLFcvMixILzItMjAraSoyNikpOwp9CgpsZXQgbGFzdD1wZXJmb3JtYW5jZS5ub3coKTsKZnVuY3Rpb24gbG9vcChub3cpewogIGNvbnN0IGR0PU1hdGgubWluKDAuMDMzLChub3ctbGFzdCkvMTAwMCk7bGFzdD1ub3c7CiAgaWYoc3RhdGU9PT0ncGxheScpe3VwZGF0ZShkdCk7ZHJhdygpO30KICBlbHNlIGlmKHN0YXRlPT09J21lbnUnKXsKICAgIGN0eC5maWxsU3R5bGU9JyMwZDExMTcnO2N0eC5maWxsUmVjdCgwLDAsVyxIKTsKICAgIG92ZXJsYXkoJ0FJUiBDTEVBTkVSJyxbCiAgICAgICdQdXJpZnkgdGhlIHNreSBiZWZvcmUgdGhlIEFRSSBoaXRzIDEwMC4nLAogICAgICAnJywKICAgICAgJ+KGkCDihpIgb3IgQS9EIHRvIG1vdmUgIOKAoiAgU1BBQ0Ugb3IgY2xpY2sgdG8gZmlyZSAg4oCiICBtb3VzZS90b3VjaCB0byBzdGVlcicsCiAgICAgICdEdXN0IMK3IEZ1bWVzIMK3IFNtb2cgKHNwbGl0cyEpIMK3IEVtYmVycyDCtyBTbW9rZXN0YWNrcyDCtyBCb3NzIGV2ZXJ5IDUgd2F2ZXMnLAogICAgICAnSCA9IHRyaXBsZSBqZXQgICBQID0gaW9uaXplciBwdXJnZSAgIEYgPSBBUUkg4oiSMjUnLAogICAgICAnJywKICAgICAgJ1ByZXNzIEVOVEVSIG9yIGNsaWNrIHRvIHN0YXJ0J10pOwogIH0gZWxzZSB7CiAgICBkcmF3KCk7CiAgICBvdmVybGF5KCdBSVIgUVVBTElUWSBDUklUSUNBTCcsWwogICAgICAnRmluYWwgc2NvcmU6ICcrc2NvcmUrJyAgIOKAoiAgIEJlc3Q6ICcrYmVzdCwKICAgICAgJ1lvdSBzdXJ2aXZlZCB0byB3YXZlICcrd2F2ZSwKICAgICAgJycsJ1ByZXNzIEVOVEVSIG9yIGNsaWNrIHRvIHRyeSBhZ2FpbiddKTsKICB9CiAgcmVxdWVzdEFuaW1hdGlvbkZyYW1lKGxvb3ApOwp9CgpmdW5jdGlvbiBzdGFydCgpe2lmKHN0YXRlIT09J3BsYXknKXtyZXNldCgpO3N0YXRlPSdwbGF5Jzt9fQphZGRFdmVudExpc3RlbmVyKCdrZXlkb3duJyxlPT57CiAga2V5c1tlLmtleV09dHJ1ZTsKICBpZihlLmtleT09PScgJ3x8ZS5rZXkuc3RhcnRzV2l0aCgnQXJyb3cnKSllLnByZXZlbnREZWZhdWx0KCk7CiAgaWYoZS5rZXk9PT0nRW50ZXInKXN0YXJ0KCk7Cn0pOwphZGRFdmVudExpc3RlbmVyKCdrZXl1cCcsZT0+a2V5c1tlLmtleV09ZmFsc2UpOwpmdW5jdGlvbiBweChlKXtjb25zdCByPWN2LmdldEJvdW5kaW5nQ2xpZW50UmVjdCgpO3JldHVybiAoZS5jbGllbnRYLXIubGVmdCkqKFcvci53aWR0aCk7fQpjdi5hZGRFdmVudExpc3RlbmVyKCdwb2ludGVyZG93bicsZT0+e3B0ci5kb3duPXRydWU7cHRyLmFjdGl2ZT10cnVlO3B0ci54PXB4KGUpO3N0YXJ0KCk7fSk7CmFkZEV2ZW50TGlzdGVuZXIoJ3BvaW50ZXJ1cCcsKCk9PnB0ci5kb3duPWZhbHNlKTsKY3YuYWRkRXZlbnRMaXN0ZW5lcigncG9pbnRlcm1vdmUnLGU9PntwdHIuYWN0aXZlPXRydWU7cHRyLng9cHgoZSk7fSk7CnJlcXVlc3RBbmltYXRpb25GcmFtZShsb29wKTsKPC9zY3JpcHQ+CjwvYm9keT4KPC9odG1sPgo=";
+</script>
+
+<script>
+  // ---- page toggling ----
+  function showPage(id){
+    document.getElementById('page-main').style.display = (id === 'main') ? 'block' : 'none';
+    document.getElementById('page-game').style.display = (id === 'game') ? 'block' : 'none';
+    document.getElementById('page-arcade').style.display = (id === 'arcade') ? 'block' : 'none';
+    window.scrollTo(0,0);
+  }
+
+  // ---- game logic ----
+  let carbon = 0;
+  let money = 0;
+  const order = [1,2,3,4,5];
+  let step = 0;
+
+  function updateHud(){
+    document.getElementById('hud-year').textContent = Math.min(step+1,5) + ' / 5';
+    document.getElementById('hud-carbon').textContent = Math.round(carbon*10)/10 + ' t';
+    document.getElementById('hud-money').textContent = '$' + Math.abs(money).toLocaleString();
+  }
+
+  function showScene(id){
+    document.querySelectorAll('#page-game .scene').forEach(s => s.classList.remove('active'));
+    document.querySelector('#page-game [data-scene="'+id+'"]').classList.add('active');
+  }
+
+  function nextScene(id){
+    showScene(id);
+  }
+
+  function choose(carbonDelta, moneyDelta, impactLevel){
+    carbon += carbonDelta;
+    money += moneyDelta;
+    step++;
+    updateHud();
+    if(step >= order.length){
+      finishGame();
+    } else {
+      showScene(order[step]);
+    }
+  }
+
+  function finishGame(){
+    let headline, body;
+    if(carbon >= 5){
+      headline = "A meaningfully lower footprint";
+      body = "You leaned into the higher-impact choice most years. It cost more upfront, but the estimated yearly savings are substantial.";
+    } else if(carbon >= 2){
+      headline = "A balanced five years";
+      body = "You mixed convenience with impact — a realistic pace for most households, with real savings adding up over time.";
+    } else {
+      headline = "Mostly steady as it was";
+      body = "You kept costs and disruption low. That's a valid choice too — though the estimated carbon savings stayed close to zero.";
+    }
+    document.getElementById('end-headline').textContent = headline;
+    document.getElementById('end-body').textContent = body;
+    document.getElementById('end-carbon').textContent = (Math.round(carbon*10)/10) + ' t';
+    document.getElementById('end-money').textContent = '$' + Math.abs(money).toLocaleString();
+    showScene('end');
+  }
+
+  function restartGame(){
+    carbon = 0; money = 0; step = 0;
+    updateHud();
+    showScene(0);
+  }
+
+  updateHud();
+</script>
+
+</body>
+</html>
