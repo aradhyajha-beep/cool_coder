@@ -1,0 +1,116 @@
+import random
+import time
+
+
+def print_divider():
+    print("-" * 50)
+
+
+def display_status(round_num, money, aqi, approval):
+    print_divider()
+    print(f"| ROUND {round_num}/5 | Budget: ${money}k | AQI: {aqi} | Approval: {approval}% |")
+    print_divider()
+
+    # Provide a text description of the current air quality
+    if aqi < 50:
+        print("🌍 Air Status: Good (Clean and fresh!)")
+    elif aqi < 100:
+        print("🌤️ Air Status: Moderate (A bit hazy)")
+    elif aqi < 150:
+        print("😷 Air Status: Unhealthy for Sensitive Groups")
+    else:
+        print("🚨 Air Status: Hazardous (Smog emergency!)")
+    print_divider()
+
+
+def play_game():
+    # Initial Game State variables
+    money = 100
+    aqi = 90
+    approval = 75
+    current_round = 1
+
+    print("=============================================")
+    print("      WELCOME TO THE AIR POLLUTION GAME      ")
+    print("         Can you save Smogville?            ")
+    print("=============================================")
+    print("Goal: Survive 5 rounds.")
+    print("Keep AQI below 150, Budget above $0, and Approval above 20%.")
+
+    while current_round <= 5:
+        display_status(current_round, money, aqi, approval)
+
+        # Present policies/choices to the player
+        print("Choose a policy to implement this round:")
+        print("1. Build Green Parks (-$30k, -25 AQI, +10% Approval)")
+        print("2. Shut Down Coal Factory (-$10k, -40 AQI, -15% Approval)")
+        print("3. Subsidize Electric Vehicles (-$40k, -20 AQI, +5% Approval)")
+        print("4. Do Nothing (+$20k, +35 AQI, -10% Approval)")
+
+        # Validate user input
+        choice = ""
+        while choice not in ["1", "2", "3", "4"]:
+            choice = input("\nEnter your choice (1-4): ").strip()
+
+        # Process the choice consequences
+        if choice == "1":
+            money -= 30
+            aqi -= 25
+            approval += 10
+            print("\n[Result] You planted trees! The air smells sweeter.")
+        elif choice == "2":
+            money -= 10
+            aqi -= 40
+            approval -= 15
+            print("\n[Result] Factory closed. Air is cleaner, but workers are angry.")
+        elif choice == "3":
+            money -= 40
+            aqi -= 20
+            approval += 5
+            print("\n[Result] More EVs on the road. Tailpipe emissions dropped.")
+        elif choice == "4":
+            money += 20
+            aqi += 35
+            approval -= 10
+            print("\n[Result] You saved money, but local power plants emitted heavy smog.")
+
+        # Simulate a random environmental event to add unpredictability
+        time.sleep(1)
+        print("\n💨 Checking weather conditions...")
+        time.sleep(1)
+
+        event = random.choice(["windy", "stagnant", "normal"])
+        if event == "windy":
+            aqi -= 15
+            print("➡️ Random Event: Strong winds blew some pollution away! (AQI -15)")
+        elif event == "stagnant":
+            aqi += 20
+            print("⚠️ Random Event: No wind! Pollution is trapped over the city. (AQI +20)")
+        else:
+            print("➡️ Random Event: Normal weather patterns persisted.")
+
+        # Keep AQI bounded within a realistic 0 to 300 index scale
+        aqi = max(0, min(aqi, 300))
+        # Keep approval capped at 100%
+        approval = min(approval, 100)
+
+        # Check instant failure conditions
+        if aqi >= 150:
+            print("\n❌ GAME OVER: The smog is too thick! Residents evacuated the city.")
+            return
+        if money <= 0:
+            print("\n❌ GAME OVER: Smogville went completely bankrupt.")
+            return
+        if approval <= 20:
+            print("\n❌ GAME OVER: The citizens rioted and voted you out of office.")
+            return
+
+        current_round += 1
+
+    # Win condition met if player survives all 5 rounds
+    print("\n🎉 CONGRATULATIONS! You successfully managed the city for 5 rounds!")
+    print(f"Final Score -> AQI: {aqi} | Budget: ${money}k | Approval: {approval}%")
+
+
+if __name__ == "__main__":
+    play_game()
