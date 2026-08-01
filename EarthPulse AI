@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EarthPulse AI — local climate twin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  :root {
+    --ink:#0c1618; --panel:#12242a; --panel-2:#162c33;
+    --line:#244149; --line-soft:#1b333a;
+    --text:#dcece7; --text-dim:#7fa39c; --text-faint:#4d726c;
+    --teal:#35d9a0; --amber:#f2a93b; --coral:#e8654a;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { min-height:100%; margin:0; }
+  body { background:var(--ink); color:var(--text); font-family:'Inter',system-ui,sans-serif; overflow-x:hidden; overflow-y:auto; }
+  .app { width:100%; min-height:100vh; }
+
+  .app-header { position:sticky; top:0; z-index:100; display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px 20px; border-bottom:1px solid var(--line); background:var(--panel); }
+  .pulse-dot { width:10px; height:10px; border-radius:50%; background:var(--teal); animation:pulse 2s infinite; flex:none; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(53,217,160,.5);} 70%{box-shadow:0 0 0 10px rgba(53,217,160,0);} 100%{box-shadow:0 0 0 0 rgba(53,217,160,0);} }
+  .brand { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em; flex:none; }
+  .brand span { color:var(--teal); }
+  .loc-indicator { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:6px; white-space:nowrap; border-left:1px solid var(--line); padding-left:14px; }
+  .loc-indicator b { color:var(--text); font-weight:500; }
+  .spacer { flex:1; }
+  .hdr-controls { display:flex; gap:8px; flex-wrap:wrap; }
+  .btn { font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.03em; color:var(--text-dim); background:transparent; border:1px solid var(--line); border-radius:7px; padding:8px 12px; cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .btn:hover { color:var(--text); border-color:var(--teal); }
+  .btn.primary { color:var(--teal); border-color:var(--teal); }
+
+  .wrap { max-width:1280px; margin:0 auto; padding:18px 20px 40px; }
+
+  .gate { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:18px; }
+  .gate h2 { font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:600; margin-bottom:6px; }
+  .gate p { font-size:13.5px; color:var(--text-dim); line-height:1.6; max-width:640px; }
+  .gate .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+  .gate input { font-family:'Inter',sans-serif; font-size:14px; color:var(--text); background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:10px 12px; min-width:220px; flex:1 1 220px; max-width:340px; }
+  .gate input::placeholder { color:var(--text-faint); }
+  .gate input:focus { outline:none; border-color:var(--teal); }
+  .spinner { width:15px; height:15px; border:2px solid var(--line); border-top-color:var(--teal); border-radius:50%; display:inline-block; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:8px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .demo-flag { display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--amber); border:1px solid var(--amber); border-radius:5px; padding:2px 7px; margin-left:8px; }
+  .gate-msg { font-size:13px; margin-top:10px; color:var(--amber); }
+  .privacy { font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-top:14px; line-height:1.5; }
+
+  .profile { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin-bottom:18px; }
+  .profile-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+  .profile-head .ttl { font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:var(--text-faint); }
+  .est-flag { font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--teal); border:1px solid var(--teal); border-radius:5px; padding:2px 7px; }
+  .info-dot { width:16px; height:16px; border-radius:50%; border:1px solid var(--text-faint); color:var(--text-faint); font-size:10px; display:inline-flex; align-items:center; justify-content:center; cursor:help; position:relative; }
+  .info-dot:hover .tip { display:block; }
+  .tip { display:none; position:absolute; top:22px; left:0; z-index:30; width:260px; background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:9px 11px; font-family:'Inter',sans-serif; font-size:11.5px; line-height:1.5; color:var(--text-dim); text-transform:none; letter-spacing:0; }
+  .profile-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+  .pstat { background:var(--panel-2); border:1px solid var(--line-soft); border-radius:8px; padding:9px 11px; }
+  .pstat .k { font-size:11px; color:var(--text-dim); white-space:nowrap; }
+  .pstat .v { font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:600; margin-top:2px; }
+
+  .main-layout { display:grid; grid-template-columns:300px minmax(0, 1fr); gap:20px; }
+  @media (max-width:900px) { .main-layout { grid-template-columns:1fr; } }
+
+  .panel-card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .col-title { font-family:'IBM Plex Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:var(--text-faint); margin-bottom:12px; }
+
+  .chips { display:flex; flex-direction:column; gap:8px; }
+  @media (max-width:900px) { .chips { flex-direction:row; flex-wrap:wrap; } .chips .chip { flex:1 1 130px; } }
+  .chip { display:flex; align-items:center; gap:10px; padding:9px 11px; background:var(--panel-2); border:1px solid var(--line-soft); border-radius:9px; cursor:pointer; transition:border-color .15s, transform .05s, background .15s; user-select:none; white-space:nowrap; }
+  .chip:hover { border-color:var(--teal); }
+  .chip.armed { border-color:var(--teal); background:rgba(53,217,160,.14); }
+  .chip .ico { font-size:19px; line-height:1; }
+  .chip .lbl { font-size:13px; font-weight:500; }
+  .chip .sub { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-faint); }
+  .chip .txt { display:flex; flex-direction:column; gap:1px; }
+
+  .qty { margin-top:14px; background:var(--panel-2); border:1px solid var(--line-soft); border-radius:9px; padding:12px; }
+  .qty.disabled { opacity:.45; pointer-events:none; }
+  .qty-top { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px; }
+  .qty-label { font-size:12px; color:var(--text-dim); }
+  .qty-val { font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; color:var(--teal); }
+  .qty input[type=range] { width:100%; accent-color:var(--teal); }
+  .qty-hint { font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-top:8px; line-height:1.5; }
+
+  .deployed { margin-top:16px; }
+  .deployed .col-title { margin-bottom:8px; }
+  #tally { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); line-height:1.9; }
+
+  .board-head { display:flex; align-items:baseline; gap:12px; margin-bottom:6px; flex-wrap:wrap; }
+  .board-title { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:15px; }
+  .board-title small { display:block; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim); font-weight:400; margin-top:2px; }
+  .heat-readout { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim); margin-left:auto; }
+  .heat-readout b { color:var(--amber); font-weight:600; }
+  .board-note { font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-faint); margin-bottom:10px; }
+
+  #satmap { height:60vh; min-height:400px; width:100%; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel-2); }
+  #satmap.arming { cursor:crosshair; }
+  .leaflet-container { background:#0b1416; font-family:'Inter',sans-serif; }
+  .marker-emoji { font-size:20px; line-height:1; text-align:center; filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:var(--panel); color:var(--text); border:1px solid var(--line); }
+  .leaflet-popup-content { font-family:'IBM Plex Mono',monospace; font-size:12px; margin:9px 12px; }
+  .leaflet-bar a { background:var(--panel); color:var(--text); border-color:var(--line); }
+  .leaflet-bar a:hover { background:var(--panel-2); }
+  .hint { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-top:9px; }
+
+  .impact { margin-top:22px; }
+  .impact-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .impact-head .note { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); margin-left:auto; }
+  .cards { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
+  @media (max-width:900px) { .cards { grid-template-columns:repeat(2, 1fr); } }
+  .metric { background:var(--panel-2); border:1px solid var(--line-soft); border-radius:9px; padding:12px 14px; }
+  .metric .m-lbl { font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em; white-space:nowrap; }
+  .metric .m-val { font-family:'IBM Plex Mono',monospace; font-size:23px; font-weight:600; margin-top:4px; color:var(--teal); }
+  .metric .m-val small { font-size:12px; color:var(--text-dim); font-weight:400; }
+  .metric .m-base { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-faint); margin-top:4px; }
+  .bar { height:4px; border-radius:3px; margin-top:8px; background:var(--line-soft); overflow:hidden; }
+  .bar > i { display:block; height:100%; background:var(--teal); width:0; transition:width .4s; }
+
+  .assumptions { margin-top:22px; }
+  details { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:0 16px; }
+  details summary { cursor:pointer; padding:14px 0; font-family:'IBM Plex Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--text-dim); list-style:none; }
+  details summary::-webkit-details-marker { display:none; }
+  details summary::before { content:'▸ '; color:var(--teal); }
+  details[open] summary::before { content:'▾ '; }
+  details .body { padding:0 0 16px; font-size:13px; line-height:1.7; color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="app-header">
+    <div class="pulse-dot"></div>
+    <div class="brand">Earth<span>Pulse</span> AI</div>
+    <div class="loc-indicator" id="locIndicator">📍 <b>Detecting…</b></div>
+    <div class="spacer"></div>
+    <div class="hdr-controls">
+      <button class="btn" id="btnUseLoc">Use my location</button>
+      <button class="btn" id="btnChangeLoc">Change location</button>
+      <button class="btn" id="btnRefresh">Refresh local data</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    <section class="gate" id="gate">
+      <h2 id="gateTitle"><span class="spinner"></span>Detecting your location…</h2>
+      <p id="gateBody">EarthPulse uses your approximate location to create a local climate-resilience simulation.</p>
+      <div class="row" id="gateRow" style="display:none;">
+        <input id="cityInput" type="text" placeholder="Enter city or postcode" />
+        <button class="btn primary" id="btnSearchCity">Search</button>
+        <button class="btn" id="btnRetryLoc">Use location</button>
+        <button class="btn" id="btnDemo">Use demo location <span class="demo-flag" style="margin-left:6px;">Singapore</span></button>
+      </div>
+      <div class="gate-msg" id="gateMsg" style="display:none;"></div>
+      <div class="privacy">Your location is used only to generate this local simulation and is not permanently stored.</div>
+    </section>
+
+    <div id="content" style="display:none;">
+
+      <section class="profile">
+        <div class="profile-head">
+          <span class="ttl">Local climate profile</span>
+          <span class="est-flag" id="estFlag">AI-estimated baseline</span>
+          <span class="info-dot">i<span class="tip">EarthPulse combines available local data with modelled estimates. Results are intended for planning demonstrations and are not official environmental measurements.</span></span>
+        </div>
+        <div class="profile-grid" id="profileGrid"></div>
+      </section>
+
+      <div class="main-layout">
+        <aside class="panel-card">
+          <div class="col-title">Interventions</div>
+          <div class="chips" id="chips"></div>
+
+          <div class="qty disabled" id="qtyBox">
+            <div class="qty-top">
+              <span class="qty-label" id="qtyLabel">Amount</span>
+              <span class="qty-val" id="qtyVal">—</span>
+            </div>
+            <input type="range" id="qtySlider" min="0" max="100" value="0" />
+            <div class="qty-hint" id="qtyHint">Pick an intervention, choose how much, then click a spot on the map.</div>
+          </div>
+
+          <div class="deployed">
+            <div class="col-title">Deployed</div>
+            <div id="tally"><span style="color:var(--text-faint)">nothing yet</span></div>
+          </div>
+        </aside>
+
+        <section>
+          <div class="board-head">
+            <div class="board-title">Satellite climate twin<small id="boardPlace">—</small></div>
+            <div class="heat-readout">projected cooling <b id="heat">—</b></div>
+          </div>
+          <div class="board-note">Live satellite imagery (Esri World Imagery). Drop interventions on real ground — footprint rings are illustrative, not exact parcels.</div>
+          <div id="satmap"></div>
+          <div class="hint" id="hint">arm an intervention, set the amount, then click anywhere on the map to place it</div>
+        </section>
+      </div>
+
+      <section class="impact">
+        <div class="impact-head">
+          <span class="col-title" style="margin-bottom:0;">Predicted impact</span>
+          <span class="note" id="note">interventions scaled to your local baseline</span>
+        </div>
+        <div class="cards" id="cards"></div>
+      </section>
+
+      <section class="assumptions">
+        <details>
+          <summary>Model details &amp; data notice</summary>
+          <div class="body" id="modelBody">
+            EarthPulse trains a small linear model in your browser on 20 seed scenarios, then scales each intervention's effect to your local baseline — hotter areas get more cooling from shade and reflective roofs, wetter areas get more flood benefit from rain gardens and un-paving, sunnier areas get more from solar, windier regions more from wind.
+            Baseline figures combine live weather (where reachable) with climate assumptions from latitude, rainfall and land-cover estimates. They are modelled values for demonstration, <strong>not</strong> official measurements. Outputs are clamped to sensible ranges (no negative carbon or energy, flood risk stays within 0–100%).
+            <div id="modelDiag" style="margin-top:10px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint);"></div>
+          </div>
+        </details>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* intervention definitions incl. quantity range ("how much") */
+const LEVERS = [
+  {key:'trees',        icon:'🌳', label:'Trees',      unit:'trees',   min:5,  max:500,  step:5,  def:50},
+  {key:'greenRoofM2',  icon:'🏡', label:'Green roof', unit:'m²',      min:50, max:2000, step:50, def:300},
+  {key:'coolRoofM2',   icon:'🎨', label:'Cool roof',  unit:'m²',      min:50, max:2000, step:50, def:300},
+  {key:'rainGardenM2', icon:'🌧️', label:'Rain garden',unit:'m²',      min:50, max:1500, step:50, def:200},
+  {key:'cyclingDays',  icon:'🚲', label:'Cycle days', unit:'days/wk', min:1,  max:5,    step:1,  def:2},
+  {key:'solarKW',      icon:'☀️', label:'Solar',      unit:'kW',      min:5,  max:200,  step:5,  def:30},
+  {key:'windKW',       icon:'🌬️', label:'Wind',       unit:'kW',      min:10, max:300,  step:10, def:50},
+  {key:'pavedRemovedM2',icon:'🌱',label:'Un-pave',    unit:'m²',      min:50, max:1500, step:50, def:200},
+];
+const F = LEVERS.map(l=>l.key);
+const META = Object.fromEntries(LEVERS.map(l=>[l.key,l]));
+const ICON = Object.fromEntries(LEVERS.map(l=>[l.key,l.icon]));
+const T = ['tempDropC','aqiDrop','floodRisk','carbonSavedT','energySavedKWh'];
+const TMETA = [
+  {key:'tempDropC',     icon:'🌡', label:'Temp drop',   unit:'°C',  max:8.5},
+  {key:'aqiDrop',       icon:'💨', label:'Air quality', unit:' AQI',max:110},
+  {key:'floodRisk',     icon:'🌊', label:'Flood risk',  unit:'%',   max:100},
+  {key:'carbonSavedT',  icon:'♻️', label:'Carbon saved',unit:' t',  max:180},
+  {key:'energySavedKWh',icon:'⚡', label:'Energy saved',unit:' kWh',max:310000},
+];
+
+const DATA=[{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.04,aqiDrop:0,floodRisk:72,carbonSavedT:0,energySavedKWh:0},
+{trees:150,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.59,aqiDrop:4,floodRisk:69,carbonSavedT:3,energySavedKWh:100},
+{trees:600,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:2.38,aqiDrop:18,floodRisk:65,carbonSavedT:12,energySavedKWh:400},
+{trees:0,greenRoofM2:400,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.31,aqiDrop:2,floodRisk:70,carbonSavedT:2,energySavedKWh:1500},
+{trees:0,greenRoofM2:1000,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.85,aqiDrop:5,floodRisk:65,carbonSavedT:5,energySavedKWh:4800},
+{trees:0,greenRoofM2:0,coolRoofM2:500,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.84,aqiDrop:0,floodRisk:72,carbonSavedT:1,energySavedKWh:3900},
+{trees:0,greenRoofM2:0,coolRoofM2:1400,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:2.27,aqiDrop:2,floodRisk:72,carbonSavedT:3,energySavedKWh:10700},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:300,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.18,aqiDrop:1,floodRisk:62,carbonSavedT:0,energySavedKWh:200},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:900,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.45,aqiDrop:7,floodRisk:45,carbonSavedT:1,energySavedKWh:100},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:2,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.05,aqiDrop:8,floodRisk:72,carbonSavedT:15,energySavedKWh:0},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:5,solarKW:0,windKW:0,pavedRemovedM2:0,tempDropC:0.13,aqiDrop:23,floodRisk:71,carbonSavedT:35,energySavedKWh:500},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:40,windKW:0,pavedRemovedM2:0,tempDropC:0.06,aqiDrop:10,floodRisk:71,carbonSavedT:22,energySavedKWh:55700},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:90,windKW:0,pavedRemovedM2:0,tempDropC:0.04,aqiDrop:22,floodRisk:72,carbonSavedT:50,energySavedKWh:126100},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:50,pavedRemovedM2:0,tempDropC:0.03,aqiDrop:10,floodRisk:72,carbonSavedT:35,energySavedKWh:90100},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:120,pavedRemovedM2:0,tempDropC:0.02,aqiDrop:23,floodRisk:72,carbonSavedT:84,energySavedKWh:216500},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:300,tempDropC:0.59,aqiDrop:3,floodRisk:66,carbonSavedT:2,energySavedKWh:0},
+{trees:0,greenRoofM2:0,coolRoofM2:0,rainGardenM2:0,cyclingDays:0,solarKW:0,windKW:0,pavedRemovedM2:800,tempDropC:1.45,aqiDrop:7,floodRisk:56,carbonSavedT:5,energySavedKWh:0},
+{trees:300,greenRoofM2:500,coolRoofM2:0,rainGardenM2:0,cyclingDays:3,solarKW:30,windKW:0,pavedRemovedM2:400,tempDropC:2.53,aqiDrop:36,floodRisk:58,carbonSavedT:48,energySavedKWh:44900},
+{trees:500,greenRoofM2:0,coolRoofM2:800,rainGardenM2:400,cyclingDays:0,solarKW:0,windKW:60,pavedRemovedM2:0,tempDropC:3.48,aqiDrop:31,floodRisk:54,carbonSavedT:54,energySavedKWh:114200},
+{trees:800,greenRoofM2:1200,coolRoofM2:1000,rainGardenM2:700,cyclingDays:5,solarKW:80,windKW:100,pavedRemovedM2:900,tempDropC:8.16,aqiDrop:110,floodRisk:16,carbonSavedT:179,energySavedKWh:306200}];
+
+const _X=DATA.map(r=>F.map(k=>r[k])),_n=_X.length,_d=F.length;
+const _mean=Array(_d).fill(0),_std=Array(_d).fill(0);
+_X.forEach(r=>r.forEach((v,j)=>_mean[j]+=v/_n));
+_X.forEach(r=>r.forEach((v,j)=>_std[j]+=(v-_mean[j])**2/_n));
+for(let j=0;j<_d;j++)_std[j]=Math.sqrt(_std[j])||1;
+const _Z=_X.map(r=>r.map((v,j)=>(v-_mean[j])/_std[j]));
+const _M={};
+T.forEach(t=>{const y=DATA.map(r=>r[t]);let w=Array(_d).fill(0),b=0;
+  for(let e=0;e<4000;e++){const gw=Array(_d).fill(0);let gb=0;
+    for(let i=0;i<_n;i++){const p=_Z[i].reduce((s,v,j)=>s+v*w[j],b),er=p-y[i];
+      for(let j=0;j<_d;j++)gw[j]+=2*er*_Z[i][j]/_n; gb+=2*er/_n;}
+    for(let j=0;j<_d;j++)w[j]-=.08*gw[j]; b-=.08*gb;}
+  _M[t]={w,b};});
+const marginal={};
+T.forEach(t=>{ marginal[t]={}; F.forEach((k,j)=>marginal[t][k]=_M[t].w[j]/_std[j]); });
+
+const DEMO = { lat:1.3521, lng:103.8198, demo:true };
+
+function getUserLocation(){
+  return new Promise((resolve, reject)=>{
+    if(!('geolocation' in navigator)){ reject(new Error('unsupported')); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat:pos.coords.latitude, lng:pos.coords.longitude, demo:false }),
+      err => reject(err),
+      { enableHighAccuracy:false, timeout:9000, maximumAge:600000 }
+    );
+  });
+}
+async function reverseGeocode(lat, lng){
+  try{
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`;
+    const r = await fetch(url); if(!r.ok) throw new Error('geocode');
+    const d = await r.json();
+    const city = d.city || d.locality || d.principalSubdivision || '';
+    return { area:d.locality || city || 'Your area', city:city||'Your area', region:d.principalSubdivision||'', country:d.countryName||'', ok:true };
+  }catch(e){ return { area:'Your area', city:'Your area', region:'', country:'', ok:false }; }
+}
+async function forwardGeocode(query){
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
+  const r = await fetch(url); if(!r.ok) throw new Error('search');
+  const d = await r.json(); if(!d.results || !d.results.length) throw new Error('no match');
+  const m = d.results[0];
+  return { lat:m.latitude, lng:m.longitude, demo:false, place:{ area:m.name, city:m.name, region:m.admin1||'', country:m.country||'', ok:true } };
+}
+async function fetchLocalWeather(lat, lng){
+  try{
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,precipitation,cloud_cover,wind_speed_10m&daily=precipitation_sum&forecast_days=1&timezone=auto`;
+    const r = await fetch(url); if(!r.ok) throw new Error('weather');
+    const d = await r.json(); const c = d.current || {};
+    return { ok:true, temp:c.temperature_2m, humidity:c.relative_humidity_2m,
+      precip:(d.daily&&d.daily.precipitation_sum&&d.daily.precipitation_sum[0])||c.precipitation||0,
+      cloud:c.cloud_cover, wind:c.wind_speed_10m };
+  }catch(e){ return { ok:false }; }
+}
+
+function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+
+function buildLocationBaseline(place, weather, coords){
+  const absLat = Math.abs(coords.lat);
+  const climateTemp = clamp(30 - absLat*0.45, -5, 32);
+  const temp = (weather&&weather.ok&&weather.temp!=null) ? weather.temp : climateTemp;
+  const humidity = (weather&&weather.ok&&weather.humidity!=null) ? weather.humidity : clamp(80 - absLat*0.5, 30, 90);
+  const tropical = absLat<23.5, temperate = absLat<55;
+  let rainScore = tropical ? 1.35 : temperate ? 1.0 : 0.75;
+  if(weather&&weather.ok&&weather.precip!=null){ if(weather.precip>8) rainScore=Math.max(rainScore,1.45); else if(weather.precip<0.5) rainScore=Math.min(rainScore,0.85); }
+  const rainfallProfile = rainScore>=1.25 ? 'High' : rainScore>=0.9 ? 'Moderate' : 'Low';
+  const cloud = (weather&&weather.ok&&weather.cloud!=null) ? weather.cloud : 45;
+  const solarScore = clamp(1.35 - absLat/90*0.7 - cloud/100*0.3, 0.6, 1.4);
+  const solarPotential = solarScore>=1.15 ? 'High' : solarScore>=0.9 ? 'Moderate' : 'Low';
+  const windMs = (weather&&weather.ok&&weather.wind!=null) ? weather.wind : 12;
+  const windScore = clamp(0.65 + windMs/22, 0.6, 1.4);
+  const windPotential = windScore>=1.15 ? 'High' : windScore>=0.9 ? 'Moderate' : 'Low';
+  const density='urban';
+  const urbanHeat = temp>=30 ? 'High' : temp>=24 ? 'Moderate' : 'Low';
+  const greenCover = clamp(Math.round((temperate?32:26) - 6 + (rainScore-1)*15), 8, 55);
+  const floodBaseline = clamp(Math.round(45 + (rainScore-1)*40 + 12), 15, 85);
+  const aqiBaseline = clamp(Math.round(55 + 15 - (greenCover-25)*0.4), 20, 130);
+  const heatFactor = clamp(0.8 + (temp-22)/25 + (urbanHeat==='High'?0.15:0), 0.7, 1.5);
+  return { coords, place, isEstimate:!(weather&&weather.ok),
+    temp:Math.round(temp), humidity:Math.round(humidity), rainfallProfile, urbanHeat, greenCover,
+    solarPotential, windPotential, density, floodBaseline, aqiBaseline,
+    factors:{ heat:heatFactor, rain:clamp(rainScore,0.6,1.6), solar:solarScore, wind:windScore } };
+}
+function factorFor(b, target, lever){
+  const f=b.factors;
+  if(target==='tempDropC' && (lever==='trees'||lever==='greenRoofM2'||lever==='coolRoofM2'||lever==='pavedRemovedM2')) return f.heat;
+  if(target==='floodRisk' && (lever==='rainGardenM2'||lever==='pavedRemovedM2'||lever==='greenRoofM2'||lever==='trees')) return f.rain;
+  if((target==='carbonSavedT'||target==='energySavedKWh') && lever==='solarKW') return f.solar;
+  if((target==='carbonSavedT'||target==='energySavedKWh') && lever==='windKW') return f.wind;
+  return 1;
+}
+function calculateInterventionImpact(totals, b){
+  const out={};
+  T.forEach(t=>{ let delta=0; F.forEach(k=>{ delta += marginal[t][k]*totals[k]*factorFor(b,t,k); });
+    out[t] = (t==='floodRisk') ? clamp(b.floodBaseline+delta,0,100) : Math.max(0,delta); });
+  out.tempDropC = clamp(out.tempDropC,0,12);
+  return out;
+}
+
+let baseline=null, map=null, placeLayer=null;
+const totals=Object.fromEntries(F.map(k=>[k,0]));
+const qty=Object.fromEntries(LEVERS.map(l=>[l.key,l.def]));
+let armed=null;
+
+document.getElementById('chips').innerHTML = LEVERS.map(l=>
+  `<div class="chip" data-key="${l.key}"><div class="ico">${l.icon}</div>
+     <div class="txt"><span class="lbl">${l.label}</span><span class="sub">${l.min}–${l.max} ${l.unit}</span></div></div>`).join('');
+document.getElementById('cards').innerHTML = TMETA.map(m=>
+  `<div class="metric"><div class="m-lbl">${m.icon} ${m.label}</div>
+     <div class="m-val" id="v-${m.key}">—</div><div class="bar"><i id="b-${m.key}"></i></div>
+     <div class="m-base" id="base-${m.key}"></div></div>`).join('');
+
+const chipEls=[...document.querySelectorAll('.chip')];
+const qtyBox=document.getElementById('qtyBox');
+const qtySlider=document.getElementById('qtySlider');
+const qtyVal=document.getElementById('qtyVal');
+const qtyLabel=document.getElementById('qtyLabel');
+const qtyHint=document.getElementById('qtyHint');
+
+function syncQty(){
+  if(!armed){ qtyBox.classList.add('disabled'); qtyVal.textContent='—'; qtyLabel.textContent='Amount';
+    qtyHint.textContent='Pick an intervention, choose how much, then click a spot on the map.'; return; }
+  const l=META[armed];
+  qtyBox.classList.remove('disabled');
+  qtySlider.min=l.min; qtySlider.max=l.max; qtySlider.step=l.step; qtySlider.value=qty[armed];
+  qtyLabel.textContent=`How much ${l.label.toLowerCase()}?`;
+  qtyVal.textContent=`${qty[armed].toLocaleString()} ${l.unit}`;
+  qtyHint.textContent=`Click the map to drop ${qty[armed].toLocaleString()} ${l.unit} of ${l.label.toLowerCase()} at that spot.`;
+}
+qtySlider.addEventListener('input',()=>{ if(!armed) return; qty[armed]=+qtySlider.value; syncQty(); });
+
+function setArmed(key){
+  armed=(armed===key)?null:key;
+  chipEls.forEach(c=>c.classList.toggle('armed', c.dataset.key===armed));
+  const el=document.getElementById('satmap'); if(el) el.classList.toggle('arming', !!armed);
+  syncQty();
+}
+chipEls.forEach(chip=>chip.addEventListener('click',()=>setArmed(chip.dataset.key)));
+
+function placeAt(latlng, key){
+  const amount = qty[key];
+  totals[key] += amount;
+  const icon = L.divIcon({ className:'', html:`<div class="marker-emoji">${ICON[key]}</div>`, iconSize:[24,24], iconAnchor:[12,12] });
+  const mk = L.marker(latlng, { icon }).addTo(placeLayer);
+  mk.bindPopup(`${ICON[key]} ${META[key].label}<br>${amount.toLocaleString()} ${META[key].unit}`);
+  const l=META[key];
+  const frac=(amount-l.min)/(l.max-l.min);
+  const radius=clamp(25 + frac*220, 25, 260);
+  L.circle(latlng, { radius, color:'#35d9a0', weight:1, fillColor:'#35d9a0', fillOpacity:0.12 }).addTo(placeLayer);
+  render();
+}
+
+const FMT={ tempDropC:v=>v.toFixed(2), aqiDrop:v=>Math.round(v), floodRisk:v=>Math.round(v),
+  carbonSavedT:v=>v.toFixed(1), energySavedKWh:v=>Math.round(v).toLocaleString() };
+
+function renderProfile(){
+  const b=baseline;
+  const placeStr=[b.place.area,b.place.country].filter(Boolean).join(', ')||'Your area';
+  document.getElementById('profileGrid').innerHTML = `
+    <div class="pstat"><div class="k">📍 Location</div><div class="v" style="font-size:14px;">${placeStr}${b.coords.demo?' <span class="demo-flag">Demo</span>':''}</div></div>
+    <div class="pstat"><div class="k">🌡 Current temperature</div><div class="v">${b.temp}°C</div></div>
+    <div class="pstat"><div class="k">💧 Humidity</div><div class="v">${b.humidity}%</div></div>
+    <div class="pstat"><div class="k">🌧 Rainfall profile</div><div class="v">${b.rainfallProfile}</div></div>
+    <div class="pstat"><div class="k">🏙 Urban heat exposure</div><div class="v">${b.urbanHeat}</div></div>
+    <div class="pstat"><div class="k">🌱 Estimated green cover</div><div class="v">${b.greenCover}%</div></div>
+    <div class="pstat"><div class="k">☀️ Solar potential</div><div class="v">${b.solarPotential}</div></div>
+    <div class="pstat"><div class="k">🌬 Wind potential</div><div class="v">${b.windPotential}</div></div>`;
+  document.getElementById('estFlag').textContent = b.isEstimate ? 'AI-estimated baseline' : 'Live data + estimates';
+  document.getElementById('boardPlace').textContent = placeStr;
+  document.getElementById('locIndicator').innerHTML =
+    `📍 <b>${b.place.area||'Your area'}${b.place.country?', '+b.place.country:''}</b>${b.coords.demo?' <span class="demo-flag">Demo</span>':''}`;
+  document.getElementById('modelDiag').textContent =
+    `factors — heat ×${b.factors.heat.toFixed(2)}, rain ×${b.factors.rain.toFixed(2)}, solar ×${b.factors.solar.toFixed(2)}, wind ×${b.factors.wind.toFixed(2)} · baseline flood ${b.floodBaseline}% · AQI ${b.aqiBaseline}`;
+}
+function render(){
+  if(!baseline) return;
+  const p=calculateInterventionImpact(totals, baseline);
+  TMETA.forEach(m=>{
+    document.getElementById('v-'+m.key).innerHTML=FMT[m.key](p[m.key])+`<small>${m.unit}</small>`;
+    document.getElementById('b-'+m.key).style.width=clamp((p[m.key]/m.max)*100,0,100)+'%';
+    const be=document.getElementById('base-'+m.key);
+    if(m.key==='floodRisk') be.textContent=`baseline ${baseline.floodBaseline}%`;
+    else if(m.key==='aqiDrop') be.textContent=`baseline AQI ${baseline.aqiBaseline}`;
+    else be.textContent='';
+  });
+  document.getElementById('heat').textContent = p.tempDropC<.05 ? 'baseline' : '−'+p.tempDropC.toFixed(1)+'°C';
+  const deployed=F.some(k=>totals[k]>0);
+  document.getElementById('tally').innerHTML = deployed
+    ? F.filter(k=>totals[k]>0).map(k=>`${ICON[k]} ${totals[k].toLocaleString()} ${META[k].unit}`).join('<br>')
+    : '<span style="color:var(--text-faint)">nothing yet</span>';
+  document.getElementById('note').textContent = baseline.isEstimate
+    ? 'Limited local data available. Some results are modelled estimates.'
+    : 'Interventions scaled to your local baseline.';
+}
+
+function ensureMap(){
+  if(map) return;
+  map = L.map('satmap', { zoomControl:true, attributionControl:true }).setView([baseline.coords.lat, baseline.coords.lng], 15);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom:19, attribution:'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics'
+  }).addTo(map);
+  placeLayer = L.layerGroup().addTo(map);
+  map.on('click', e=>{ if(armed) placeAt(e.latlng, armed); });
+  const el=document.getElementById('satmap');
+  chipEls.forEach(chip=>{ chip.setAttribute('draggable','true');
+    chip.addEventListener('dragstart', ev=>ev.dataTransfer.setData('key', chip.dataset.key)); });
+  el.addEventListener('dragover', ev=>ev.preventDefault());
+  el.addEventListener('drop', ev=>{ ev.preventDefault();
+    const key=ev.dataTransfer.getData('key'); if(!key) return;
+    try{ placeAt(map.mouseEventToLatLng(ev), key); }catch(_){}} );
+}
+function clearPlacements(){
+  F.forEach(k=>totals[k]=0);
+  if(placeLayer) placeLayer.clearLayers();
+  armed=null; chipEls.forEach(c=>c.classList.remove('armed'));
+  const el=document.getElementById('satmap'); if(el) el.classList.remove('arming');
+  syncQty();
+}
+
+function showGate(state, msg){
+  const gate=document.getElementById('gate'), content=document.getElementById('content');
+  const title=document.getElementById('gateTitle'), body=document.getElementById('gateBody');
+  const row=document.getElementById('gateRow'), gmsg=document.getElementById('gateMsg');
+  if(state==='detecting'){ gate.style.display=''; content.style.display='none';
+    title.innerHTML='<span class="spinner"></span>Detecting your location…';
+    body.textContent='EarthPulse uses your approximate location to create a local climate-resilience simulation.';
+    row.style.display='none'; gmsg.style.display='none';
+  } else if(state==='denied'||state==='failed'||state==='manual'){ gate.style.display=''; content.style.display='none';
+    title.textContent = state==='denied' ? 'Location access was not enabled.' : 'Couldn’t detect your location.';
+    body.textContent='Enter a city to continue, or use the demo location.';
+    row.style.display='flex'; if(msg){ gmsg.style.display=''; gmsg.textContent=msg; } else gmsg.style.display='none';
+  } else if(state==='ready'){ gate.style.display='none'; content.style.display=''; }
+}
+
+async function loadForCoords(coords, presetPlace){
+  showGate('detecting');
+  document.getElementById('gateTitle').innerHTML='<span class="spinner"></span>Building your local climate twin…';
+  let place=presetPlace;
+  try{ if(!place) place=await reverseGeocode(coords.lat,coords.lng); }
+  catch(e){ place={area:'Your area',city:'Your area',region:'',country:'',ok:false}; }
+  let weather; try{ weather=await fetchLocalWeather(coords.lat,coords.lng); }catch(e){ weather={ok:false}; }
+  baseline=buildLocationBaseline(place, weather, coords);
+  clearPlacements();
+  renderProfile(); render();
+  showGate('ready');
+  ensureMap();
+  map.setView([coords.lat, coords.lng], 15);
+  setTimeout(()=>map.invalidateSize(), 60);
+}
+async function startFromDevice(){
+  showGate('detecting');
+  try{ const coords=await getUserLocation(); await loadForCoords(coords); }
+  catch(err){ const denied=err&&err.code===1;
+    showGate(denied?'denied':'failed', denied?'':'Location unavailable in this environment — enter a city or use the demo.'); }
+}
+function confirmReset(){ return !F.some(k=>totals[k]>0) || confirm('Changing location will reset the current simulation. Continue?'); }
+
+document.getElementById('btnUseLoc').addEventListener('click', ()=>{ if(confirmReset()) startFromDevice(); });
+document.getElementById('btnRetryLoc').addEventListener('click', startFromDevice);
+document.getElementById('btnChangeLoc').addEventListener('click', ()=>{ if(confirmReset()) showGate('manual'); });
+document.getElementById('btnRefresh').addEventListener('click', ()=>{ if(baseline) loadForCoords(baseline.coords, baseline.place); });
+document.getElementById('btnDemo').addEventListener('click', ()=>{ loadForCoords({...DEMO}, {area:'Singapore',city:'Singapore',region:'',country:'Singapore',ok:true}); });
+async function doCitySearch(){
+  const q=document.getElementById('cityInput').value.trim();
+  if(!q){ showGate('manual','Type a city or postcode first.'); return; }
+  document.getElementById('gateTitle').innerHTML='<span class="spinner"></span>Finding “'+q+'”…';
+  try{ const res=await forwardGeocode(q); await loadForCoords({lat:res.lat,lng:res.lng,demo:false}, res.place); }
+  catch(e){ showGate('manual','No match found — try a different city name or postcode.'); }
+}
+document.getElementById('btnSearchCity').addEventListener('click', doCitySearch);
+document.getElementById('cityInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doCitySearch(); });
+
+syncQty();
+startFromDevice();
+</script>
+</body>
+</html>
